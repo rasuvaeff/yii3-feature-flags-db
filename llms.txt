@@ -1,0 +1,83 @@
+# yii3-feature-flags-db
+
+## Install
+
+```bash
+composer require rasuvaeff/yii3-feature-flags-db
+```
+
+## Rules
+
+- Implements `Rasuvaeff\Yii3FeatureFlags\FlagProvider` — returns `array<string, Flag>`.
+- Reads entire flag set in one query via yiisoft/db `Query` builder (`SELECT *`).
+- Invalid row shape / out-of-range rollout / invalid name throws `InvalidFlagRowException` (never silently skips; core errors wrapped).
+- `CachedFlagProvider` is a PSR-16 decorator; cache write failure is non-fatal.
+- Kill switch, rollout hash, environment targeting — all remain in core.
+- Ships a `yiisoft/db-migration` migration in `migrations/`; table name is a migration constructor arg (default `feature_flags`).
+
+## Database schema
+
+Create the table via the shipped migration (register `migrations/` in
+`yiisoft/db-migration` `sourcePaths`, run `./yii migrate:up`), or manually:
+
+```sql
+CREATE TABLE feature_flags (
+    name        VARCHAR(190) PRIMARY KEY,
+    enabled     BOOLEAN      NOT NULL DEFAULT TRUE,
+    salt        VARCHAR(190) NOT NULL DEFAULT '',
+    rollout     SMALLINT     NOT NULL DEFAULT 100,
+    kill_switch BOOLEAN      NOT NULL DEFAULT FALSE,
+    environments TEXT        NOT NULL DEFAULT '[]'
+);
+```
+
+## API
+
+### DbFlagProvider
+
+```php
+use Rasuvaeff\Yii3FeatureFlagsDb\DbFlagProvider;
+
+$provider = new DbFlagProvider(
+    db: $connection,            // Yiisoft\Db\Connection\ConnectionInterface
+    table: 'feature_flags',     // optional, default 'feature_flags'
+);
+
+$flags = $provider->getFlags(); // array<string, Flag>
+```
+
+### CachedFlagProvider
+
+```php
+use Rasuvaeff\Yii3FeatureFlagsDb\CachedFlagProvider;
+
+$cached = new CachedFlagProvider(
+    inner: $dbProvider,          // FlagProvider
+    cache: $psr16,               // Psr\SimpleCache\CacheInterface
+    ttl: 60,                     // int<0, max> seconds
+);
+
+$flags = $cached->getFlags();   // from cache or inner
+$cached->clear();               // invalidate cache
+```
+
+### InvalidFlagRowException
+
+```php
+use Rasuvaeff\Yii3FeatureFlagsDb\Exception\InvalidFlagRowException;
+```
+
+Thrown when a DB row is missing required columns, has wrong types, contains malformed `environments` JSON, or yields an invalid flag (bad name, rollout outside `0..100`). Core validation errors are wrapped into this exception.
+
+### Usage with FeatureFlags
+
+```php
+use Rasuvaeff\Yii3FeatureFlags\FeatureFlags;
+use Rasuvaeff\Yii3FeatureFlagsDb\DbFlagProvider;
+
+$featureFlags = new FeatureFlags(
+    provider: new DbFlagProvider(db: $connection),
+);
+
+$featureFlags->isEnabled('new-checkout');
+```
