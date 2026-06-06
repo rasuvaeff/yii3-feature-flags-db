@@ -135,15 +135,23 @@ $cached->clear();             // removes cached flags, next call reloads from DB
 ## Examples
 
 See [examples/](examples/) for runnable scripts.
+Examples are expected to execute without fatal errors and stay aligned with the
+documented public API.
 
 ## Development
 
 ```bash
-composer build          # full gate: validate + normalize + cs + psalm + test
-composer cs:fix         # auto-fix code style
-composer psalm          # static analysis
-composer test           # run tests
+make install
+make build
+make cs-fix
+make test
+make test-coverage
+make mutation
+make release-check
 ```
+
+`make test-coverage` and `make mutation` bootstrap `pcov` inside the
+`composer:2` container because the base image has no coverage driver.
 
 ## License
 
