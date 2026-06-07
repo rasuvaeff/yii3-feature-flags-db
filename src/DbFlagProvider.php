@@ -36,6 +36,7 @@ final readonly class DbFlagProvider implements FlagProvider
         $flags = [];
 
         foreach ($rows as $row) {
+            /** @var array<array-key, mixed> $row */
             $flag = $mapper->map(row: $row);
             $flags[$flag->name] = $flag;
         }
