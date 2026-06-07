@@ -39,7 +39,7 @@ Or with Make:
 
 ```bash
 make build
-make cs:fix
+make cs-fix
 make psalm
 make test
 ```
