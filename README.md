@@ -16,8 +16,10 @@ Database-backed feature flag provider for Yii3 applications. Implements the `Fla
 
 - PHP 8.3+
 - `rasuvaeff/yii3-feature-flags` ^1.0
-- `yiisoft/db` ^1.2
-- `yiisoft/db-migration` ^1.2 (ships the table migration)
+- `yiisoft/db` ^2.0
+- `yiisoft/db-migration` ^2.0 (ships the table migration)
+- a PSR-16 cache implementation — required transitively by `yiisoft/db` 2.0
+  (e.g. `yiisoft/cache`)
 
 ## Installation
 
