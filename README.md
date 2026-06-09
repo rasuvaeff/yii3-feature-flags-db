@@ -27,6 +27,10 @@ Database-backed feature flag provider for Yii3 applications. Implements the `Fla
 composer require rasuvaeff/yii3-feature-flags-db
 ```
 
+Requires `rasuvaeff/yii3-feature-flags` ^2.0. With Yii3 config-plugin this package
+binds `FlagProvider` automatically — do **not** also bind `FlagProvider` in your
+application or another backend, or `yiisoft/config` reports a `Duplicate key` error.
+
 ## Database schema
 
 Create the `feature_flags` table (adjust types for your RDBMS):
