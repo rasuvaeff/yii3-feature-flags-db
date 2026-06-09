@@ -24,7 +24,7 @@
     "require": {
         "php": "^8.3",
         "psr/simple-cache": "^3.0",
-        "rasuvaeff/yii3-feature-flags": "^1.0",
+        "rasuvaeff/yii3-feature-flags": "^2.0",
         "yiisoft/db": "^2.0",
         "yiisoft/db-migration": "^2.0"
     },

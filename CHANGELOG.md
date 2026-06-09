@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 2.1.0 — 2026-06-09
+
+- Require `rasuvaeff/yii3-feature-flags` ^2.0. The core no longer binds
+  `FlagProvider`; this package remains the sole binder, so installing it next to
+  the core no longer triggers the `Duplicate key "...\FlagProvider"` config error.
+
 ## 2.0.0 — 2026-06-07
 
 - Require `yiisoft/db` ^2.0 and `yiisoft/db-migration` ^2.0; drop yiisoft/db 1.x
