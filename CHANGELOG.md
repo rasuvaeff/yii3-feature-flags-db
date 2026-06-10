@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## 2.1.1 — unreleased
+## 2.1.1 — 2026-06-10
 
 - `CachedFlagProvider` cache key is now dot-separated (`rasuvaeff.feature-flags.all`)
   instead of colon-separated. PSR-16 reserves `{}()/\@:`, and some PSR-16 caches
