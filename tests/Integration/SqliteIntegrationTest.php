@@ -9,11 +9,11 @@ use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use Rasuvaeff\Yii3FeatureFlagsDb\DbFlagProvider;
 use Rasuvaeff\Yii3FeatureFlagsDb\Exception\InvalidFlagRowException;
-use Rasuvaeff\Yii3FeatureFlagsDb\Tests\NullPsr16Cache;
 use Yiisoft\Db\Cache\SchemaCache;
 use Yiisoft\Db\Connection\ConnectionInterface;
 use Yiisoft\Db\Sqlite\Connection as SqliteConnection;
 use Yiisoft\Db\Sqlite\Driver as SqliteDriver;
+use Yiisoft\Test\Support\SimpleCache\MemorySimpleCache;
 
 #[CoversClass(DbFlagProvider::class)]
 final class SqliteIntegrationTest extends TestCase
@@ -24,7 +24,7 @@ final class SqliteIntegrationTest extends TestCase
     protected function setUp(): void
     {
         $driver = new SqliteDriver(dsn: 'sqlite::memory:');
-        $schemaCache = new SchemaCache(psrCache: new NullPsr16Cache());
+        $schemaCache = new SchemaCache(psrCache: new MemorySimpleCache());
         $this->db = new SqliteConnection(driver: $driver, schemaCache: $schemaCache);
         $this->db->open();
 
