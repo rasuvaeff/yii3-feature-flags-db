@@ -14,7 +14,7 @@ use Rasuvaeff\Yii3FeatureFlags\FlagProvider;
  */
 final readonly class CachedFlagProvider implements FlagProvider
 {
-    private const string CACHE_KEY = 'rasuvaeff:feature-flags:all';
+    private const string CACHE_KEY = 'rasuvaeff.feature-flags.all';
 
     /**
      * @param int<0, max> $ttl TTL in seconds

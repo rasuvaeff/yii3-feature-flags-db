@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 2.1.1 — unreleased
+
+- `CachedFlagProvider` cache key is now dot-separated (`rasuvaeff.feature-flags.all`)
+  instead of colon-separated. PSR-16 reserves `{}()/\@:`, and some PSR-16 caches
+  (e.g. `yiisoft/test-support`'s `MemorySimpleCache`) reject the old key. On
+  upgrade the previous cache entry is ignored once (a single cold read), then
+  repopulated — no action required.
+- Tests use `yiisoft/test-support` doubles (`MemorySimpleCache`) instead of
+  hand-rolled cache fakes.
+
 ## 2.1.0 — 2026-06-09
 
 - Require `rasuvaeff/yii3-feature-flags` ^2.0. The core no longer binds
