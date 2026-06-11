@@ -22,7 +22,7 @@
         "source": "https://github.com/rasuvaeff/yii3-feature-flags-db"
     },
     "require": {
-        "php": "^8.3",
+        "php": "8.1 - 8.5",
         "psr/simple-cache": "^3.0",
         "rasuvaeff/yii3-feature-flags": "^2.0",
         "yiisoft/db": "^2.0",
