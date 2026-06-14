@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Rasuvaeff\Yii3FeatureFlagsDb;
 
-use Rasuvaeff\Yii3FeatureFlags\Exception\InvalidFlagNameException;
 use Rasuvaeff\Yii3FeatureFlags\Flag;
 use Rasuvaeff\Yii3FeatureFlags\FlagConfig;
 
@@ -31,12 +30,24 @@ final class FlagRowMapper
 
         try {
             return $config->toFlag(name: $name);
-        } catch (InvalidFlagNameException $e) {
+        } catch (\InvalidArgumentException $e) {
             throw new Exception\InvalidFlagRowException(
                 message: sprintf('Invalid flag "%s" in DB row: %s', $name, $e->getMessage()),
                 previous: $e,
             );
         }
+    }
+
+    /**
+     * @param list<string> $environments
+     */
+    public static function encodeEnvironments(array $environments): string
+    {
+        if ($environments === []) {
+            return '[]';
+        }
+
+        return json_encode(value: $environments, flags: JSON_THROW_ON_ERROR);
     }
 
     /**

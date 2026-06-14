@@ -7,6 +7,8 @@ namespace Rasuvaeff\Yii3FeatureFlagsDb\Tests\Integration;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
+use Rasuvaeff\Yii3FeatureFlags\Flag;
+use Rasuvaeff\Yii3FeatureFlagsDb\CachedFlagProvider;
 use Rasuvaeff\Yii3FeatureFlagsDb\DbFlagProvider;
 use Rasuvaeff\Yii3FeatureFlagsDb\Exception\InvalidFlagRowException;
 use Yiisoft\Db\Cache\SchemaCache;
@@ -201,6 +203,114 @@ final class SqliteIntegrationTest extends TestCase
         $this->expectExceptionMessage('Invalid environments[0]: expected string');
 
         $provider->getFlags();
+    }
+
+    #[Test]
+    public function saveInsertsNewFlagVisibleOnNextRead(): void
+    {
+        $provider = new DbFlagProvider(db: $this->db);
+
+        $provider->save(flag: new Flag(
+            name: 'saved-flag',
+            enabled: true,
+            salt: 'salt-v1',
+            rollout: 25,
+            killSwitch: false,
+            environments: ['production', 'staging'],
+        ));
+
+        $flags = $provider->getFlags();
+
+        $this->assertArrayHasKey('saved-flag', $flags);
+
+        $flag = $flags['saved-flag'];
+        $this->assertTrue($flag->enabled);
+        $this->assertSame('salt-v1', $flag->salt);
+        $this->assertSame(25, $flag->rollout);
+        $this->assertFalse($flag->killSwitch);
+        $this->assertSame(['production', 'staging'], $flag->environments);
+    }
+
+    #[Test]
+    public function saveUpdatesExistingFlagByName(): void
+    {
+        $provider = new DbFlagProvider(db: $this->db);
+
+        $provider->save(flag: new Flag(name: 'existing', enabled: true, rollout: 100));
+
+        $provider->save(flag: new Flag(
+            name: 'existing',
+            enabled: false,
+            rollout: 0,
+            killSwitch: true,
+            environments: ['staging'],
+        ));
+
+        $flag = $provider->getFlags()['existing'];
+
+        $this->assertFalse($flag->enabled);
+        $this->assertSame(0, $flag->rollout);
+        $this->assertTrue($flag->killSwitch);
+        $this->assertSame(['staging'], $flag->environments);
+    }
+
+    #[Test]
+    public function savePreservesEmptySaltRoundTrip(): void
+    {
+        $provider = new DbFlagProvider(db: $this->db);
+
+        $provider->save(flag: new Flag(name: 'no-salt'));
+
+        $flag = $provider->getFlags()['no-salt'];
+
+        $this->assertSame('no-salt', $flag->salt);
+    }
+
+    #[Test]
+    public function removeDeletesFlagByName(): void
+    {
+        $provider = new DbFlagProvider(db: $this->db);
+
+        $provider->save(flag: new Flag(name: 'to-remove'));
+
+        $this->assertArrayHasKey('to-remove', $provider->getFlags());
+
+        $provider->remove(name: 'to-remove');
+
+        $this->assertArrayNotHasKey('to-remove', $provider->getFlags());
+    }
+
+    #[Test]
+    public function removeOnMissingNameIsNoOp(): void
+    {
+        $provider = new DbFlagProvider(db: $this->db);
+
+        $this->assertSame([], $provider->getFlags());
+
+        $provider->remove(name: 'does-not-exist');
+
+        $this->assertSame([], $provider->getFlags());
+    }
+
+    #[Test]
+    public function cachedProviderWriteThroughInvalidatesCache(): void
+    {
+        $db = new DbFlagProvider(db: $this->db);
+        $cached = new CachedFlagProvider(inner: $db, cache: new MemorySimpleCache(), ttl: 60);
+
+        $cached->save(flag: new Flag(name: 'cached-flag'));
+
+        $flags = $cached->getFlags();
+
+        $this->assertArrayHasKey('cached-flag', $flags);
+
+        $cached->save(flag: new Flag(name: 'cached-flag', enabled: false));
+
+        $this->assertFalse($cached->getFlags()['cached-flag']->enabled);
+
+        $cached->remove(name: 'cached-flag');
+
+        $this->assertArrayNotHasKey('cached-flag', $cached->getFlags());
     }
 
     private function insertRow(

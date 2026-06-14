@@ -11,6 +11,7 @@ use Psr\SimpleCache\CacheInterface;
 use Rasuvaeff\Yii3FeatureFlags\Flag;
 use Rasuvaeff\Yii3FeatureFlags\FlagConfig;
 use Rasuvaeff\Yii3FeatureFlags\FlagProvider;
+use Rasuvaeff\Yii3FeatureFlags\WritableFlagProvider;
 use Rasuvaeff\Yii3FeatureFlagsDb\CachedFlagProvider;
 use Yiisoft\Test\Support\SimpleCache\MemorySimpleCache;
 
@@ -148,6 +149,82 @@ final class CachedFlagProviderTest extends TestCase
         $this->expectNotToPerformAssertions();
 
         $provider->clear();
+    }
+
+    #[Test]
+    public function implementsWritableFlagProvider(): void
+    {
+        $reflection = new \ReflectionClass(CachedFlagProvider::class);
+
+        $this->assertTrue($reflection->implementsInterface(WritableFlagProvider::class));
+    }
+
+    #[Test]
+    public function saveDelegatesToWritableInnerAndClearsCache(): void
+    {
+        $flag = $this->flag('saved-flag');
+
+        $inner = $this->createMock(WritableFlagProvider::class);
+        $inner->expects($this->once())->method('save')->with($flag);
+        $inner->method('getFlags')->willReturn([]);
+
+        $cache = new MemorySimpleCache();
+        $cache->set(self::CACHE_KEY, ['old' => $this->flag('old')]);
+
+        $provider = new CachedFlagProvider(inner: $inner, cache: $cache, ttl: 60);
+        $provider->save(flag: $flag);
+
+        $this->assertFalse($cache->has(self::CACHE_KEY));
+    }
+
+    #[Test]
+    public function saveIsNoOpOnReadOnlyInner(): void
+    {
+        $flag = $this->flag('ignored');
+
+        $inner = $this->createMock(FlagProvider::class);
+        $inner->expects($this->never())->method($this->anything());
+
+        $cache = new MemorySimpleCache();
+        $cache->set(self::CACHE_KEY, ['kept' => $this->flag('kept')]);
+
+        $provider = new CachedFlagProvider(inner: $inner, cache: $cache, ttl: 60);
+
+        $provider->save(flag: $flag);
+
+        $this->assertTrue($cache->has(self::CACHE_KEY));
+    }
+
+    #[Test]
+    public function removeDelegatesToWritableInnerAndClearsCache(): void
+    {
+        $inner = $this->createMock(WritableFlagProvider::class);
+        $inner->expects($this->once())->method('remove')->with('stale');
+        $inner->method('getFlags')->willReturn([]);
+
+        $cache = new MemorySimpleCache();
+        $cache->set(self::CACHE_KEY, ['stale' => $this->flag('stale')]);
+
+        $provider = new CachedFlagProvider(inner: $inner, cache: $cache, ttl: 60);
+        $provider->remove(name: 'stale');
+
+        $this->assertFalse($cache->has(self::CACHE_KEY));
+    }
+
+    #[Test]
+    public function removeIsNoOpOnReadOnlyInner(): void
+    {
+        $inner = $this->createMock(FlagProvider::class);
+        $inner->expects($this->never())->method($this->anything());
+
+        $cache = new MemorySimpleCache();
+        $cache->set(self::CACHE_KEY, ['kept' => $this->flag('kept')]);
+
+        $provider = new CachedFlagProvider(inner: $inner, cache: $cache, ttl: 60);
+
+        $provider->remove(name: 'ignored');
+
+        $this->assertTrue($cache->has(self::CACHE_KEY));
     }
 
     private function flag(string $name): Flag

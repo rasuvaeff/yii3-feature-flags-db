@@ -4,6 +4,7 @@
 |---|---|---|
 | `basic-usage.php` | `DbFlagProvider` reading flags from SQLite | No |
 | `cached-usage.php` | `CachedFlagProvider` with a PSR-16 cache | No |
+| `write-flag.php` | `WritableFlagProvider::save()` / `remove()` round-trip | No |
 | `yii-config.php` | Yii3 config-plugin wiring (params + di) | No |
 
 All scripts use `bootstrap.php`, which builds an in-memory SQLite connection with

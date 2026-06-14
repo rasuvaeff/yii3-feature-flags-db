@@ -5,28 +5,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## 2.1.1 — 2026-06-10
+## 1.0.0 — 2026-06-14
 
-- `CachedFlagProvider` cache key is now dot-separated (`rasuvaeff.feature-flags.all`)
-  instead of colon-separated. PSR-16 reserves `{}()/\@:`, and some PSR-16 caches
-  (e.g. `yiisoft/test-support`'s `MemorySimpleCache`) reject the old key. On
-  upgrade the previous cache entry is ignored once (a single cold read), then
-  repopulated — no action required.
-- Tests use `yiisoft/test-support` doubles (`MemorySimpleCache`) instead of
-  hand-rolled cache fakes.
-
-## 2.1.0 — 2026-06-09
-
-- Require `rasuvaeff/yii3-feature-flags` ^2.0. The core no longer binds
-  `FlagProvider`; this package remains the sole binder, so installing it next to
-  the core no longer triggers the `Duplicate key "...\FlagProvider"` config error.
-
-## 2.0.0 — 2026-06-07
-
-- Require `yiisoft/db` ^2.0 and `yiisoft/db-migration` ^2.0; drop yiisoft/db 1.x
-  support. Consumers must provide a PSR-16 cache implementation (a transitive
-  requirement of yiisoft/db 2.0).
-
-## 1.0.0 — 2026-06-05
-
-- Initial release.
+- Initial stable release.
+- `DbFlagProvider` and `CachedFlagProvider` now implement
+  `Rasuvaeff\Yii3FeatureFlags\WritableFlagProvider` (new in core 1.0.0):
+  - `save(Flag)` — upsert keyed by flag `name`.
+  - `remove(string)` — idempotent delete.
+  - `CachedFlagProvider` is write-through: after delegating to a writable inner
+    provider it clears its cache; on a read-only inner it is a silent no-op.
+- `FlagRowMapper::encodeEnvironments()` (new public static method) is the
+  inverse of `extractEnvironments()` and is used by `DbFlagProvider::save()`.
+  The two are round-trip compatible.
+- `DbFlagProvider::toRow()` normalises `salt` to `''` when it equals the flag
+  `name` to preserve the `emptySaltFallsBackToName` invariant on read-back.
+- `config/di.php` now binds `WritableFlagProvider::class` to the same instance
+  as `FlagProvider::class` via `Yiisoft\Definitions\Reference`. One key, one
+  vendor — no `Duplicate key` conflict with the core.
+- Requires `rasuvaeff/yii3-feature-flags` ^1.0 and adds `yiisoft/definitions` ^3.0.
+- `FlagRowMapper` now wraps `\InvalidArgumentException` from core (both
+  `InvalidFlagNameException` for name and plain `InvalidArgumentException`
+  for rollout range) into `InvalidFlagRowException`.

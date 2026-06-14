@@ -8,12 +8,16 @@ composer require rasuvaeff/yii3-feature-flags-db
 
 ## Rules
 
-- Implements `Rasuvaeff\Yii3FeatureFlags\FlagProvider` — returns `array<string, Flag>`.
-- Reads entire flag set in one query via yiisoft/db `Query` builder (`SELECT *`).
+- Implements `Rasuvaeff\Yii3FeatureFlags\WritableFlagProvider` (which `extends FlagProvider`).
+- `getFlags()` returns `array<string, Flag>`; one query via yiisoft/db `Query` builder.
+- `save(Flag)` is an upsert keyed by `name`; `remove(string)` is idempotent.
 - Invalid row shape / out-of-range rollout / invalid name throws `InvalidFlagRowException` (never silently skips; core errors wrapped).
-- `CachedFlagProvider` is a PSR-16 decorator; cache write failure is non-fatal.
+- `CachedFlagProvider` is a PSR-16 decorator; cache read/write failure is non-fatal.
+- `CachedFlagProvider` write-through: after `save()`/`remove()` it calls `clear()` before returning. When inner is read-only, writes are no-ops.
+- `salt === name` is serialised as `''` on write so the round-trip preserves `emptySaltFallsBackToName`.
 - Kill switch, rollout hash, environment targeting — all remain in core.
 - Ships a `yiisoft/db-migration` migration in `migrations/`; table name is a migration constructor arg (default `feature_flags`).
+- `config/di.php` binds `WritableFlagProvider` to the same instance as `FlagProvider` via `Yiisoft\Definitions\Reference`.
 
 ## Database schema
 
@@ -43,7 +47,9 @@ $provider = new DbFlagProvider(
     table: 'feature_flags',     // optional, default 'feature_flags'
 );
 
-$flags = $provider->getFlags(); // array<string, Flag>
+$flags = $provider->getFlags();  // array<string, Flag>
+$provider->save(flag: $flag);    // upsert by name
+$provider->remove(name: 'old');  // idempotent delete by name
 ```
 
 ### CachedFlagProvider
@@ -52,14 +58,29 @@ $flags = $provider->getFlags(); // array<string, Flag>
 use Rasuvaeff\Yii3FeatureFlagsDb\CachedFlagProvider;
 
 $cached = new CachedFlagProvider(
-    inner: $dbProvider,          // FlagProvider
+    inner: $dbProvider,          // FlagProvider (WritableFlagProvider for writes)
     cache: $psr16,               // Psr\SimpleCache\CacheInterface
     ttl: 60,                     // int<0, max> seconds
 );
 
-$flags = $cached->getFlags();   // from cache or inner
-$cached->clear();               // invalidate cache
+$flags = $cached->getFlags();    // from cache or inner
+$cached->save(flag: $flag);      // delegates when inner is WritableFlagProvider, then clear()
+$cached->remove(name: 'old');    // delegates when inner is WritableFlagProvider, then clear()
+$cached->clear();                // invalidate cache
 ```
+
+### FlagRowMapper
+
+```php
+// @internal — unit-tested directly, but not part of the public contract.
+use Rasuvaeff\Yii3FeatureFlagsDb\FlagRowMapper;
+
+$json = FlagRowMapper::encodeEnvironments(environments: ['production', 'staging']);
+// => '["production","staging"]'
+```
+
+`extractEnvironments()` is the inverse used by `DbFlagProvider::getFlags()`; the
+two are round-trip compatible.
 
 ### InvalidFlagRowException
 
@@ -68,6 +89,21 @@ use Rasuvaeff\Yii3FeatureFlagsDb\Exception\InvalidFlagRowException;
 ```
 
 Thrown when a DB row is missing required columns, has wrong types, contains malformed `environments` JSON, or yields an invalid flag (bad name, rollout outside `0..100`). Core validation errors are wrapped into this exception.
+
+### WritableFlagProvider DI binding
+
+```php
+use Rasuvaeff\Yii3FeatureFlags\FlagProvider;
+use Rasuvaeff\Yii3FeatureFlags\WritableFlagProvider;
+use Yiisoft\Definitions\Reference;
+
+return [
+    FlagProvider::class => /* closure producing DbFlagProvider or CachedFlagProvider */,
+    WritableFlagProvider::class => Reference::to(FlagProvider::class),
+];
+```
+
+Inject `WritableFlagProvider` for writes, `FlagProvider` for reads; both resolve to the same instance.
 
 ### Usage with FeatureFlags
 

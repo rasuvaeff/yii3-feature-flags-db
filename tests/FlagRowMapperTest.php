@@ -156,6 +156,35 @@ final class FlagRowMapperTest extends TestCase
         $this->mapper->map($this->row(rollout: 150));
     }
 
+    /**
+     * @return iterable<string, array{0: list<string>, 1: string}>
+     */
+    public static function encodeEnvironmentsProvider(): iterable
+    {
+        yield 'empty' => [[], '[]'];
+        yield 'single' => [['production'], '["production"]'];
+        yield 'multi' => [['production', 'staging', 'development'], '["production","staging","development"]'];
+    }
+
+    #[DataProvider('encodeEnvironmentsProvider')]
+    #[Test]
+    public function encodeEnvironmentsRoundTrips(array $input, string $expected): void
+    {
+        $encoded = FlagRowMapper::encodeEnvironments(environments: $input);
+
+        $this->assertSame($expected, $encoded);
+
+        $decoded = $this->mapper->map(row: $this->row(environments: $encoded))->environments;
+
+        $this->assertSame($input, $decoded);
+    }
+
+    #[Test]
+    public function encodeEnvironmentsIsEmptyArrayStringForEmptyInput(): void
+    {
+        $this->assertSame('[]', FlagRowMapper::encodeEnvironments(environments: []));
+    }
+
     #[Test]
     public function wrapsCoreExceptionForInvalidName(): void
     {

@@ -5,9 +5,11 @@ declare(strict_types=1);
 use Psr\Container\ContainerInterface;
 use Psr\SimpleCache\CacheInterface;
 use Rasuvaeff\Yii3FeatureFlags\FlagProvider;
+use Rasuvaeff\Yii3FeatureFlags\WritableFlagProvider;
 use Rasuvaeff\Yii3FeatureFlagsDb\CachedFlagProvider;
 use Rasuvaeff\Yii3FeatureFlagsDb\DbFlagProvider;
 use Yiisoft\Db\Connection\ConnectionInterface;
+use Yiisoft\Definitions\Reference;
 
 /** @var array $params */
 
@@ -35,4 +37,5 @@ return [
 
         return $provider;
     },
+    WritableFlagProvider::class => Reference::to(FlagProvider::class),
 ];

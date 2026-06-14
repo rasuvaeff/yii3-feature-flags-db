@@ -17,6 +17,7 @@ Database-backed feature flag provider for Yii3 applications. Implements the `Fla
 - `rasuvaeff/yii3-feature-flags` ^1.0
 - `yiisoft/db` ^2.0
 - `yiisoft/db-migration` ^2.0 (ships the table migration)
+- `yiisoft/definitions` ^3.0 (DI `Reference` for `WritableFlagProvider`)
 - a PSR-16 cache implementation — required transitively by `yiisoft/db` 2.0
   (e.g. `yiisoft/cache`)
 
@@ -26,9 +27,10 @@ Database-backed feature flag provider for Yii3 applications. Implements the `Fla
 composer require rasuvaeff/yii3-feature-flags-db
 ```
 
-Requires `rasuvaeff/yii3-feature-flags` ^2.0. With Yii3 config-plugin this package
-binds `FlagProvider` automatically — do **not** also bind `FlagProvider` in your
-application or another backend, or `yiisoft/config` reports a `Duplicate key` error.
+With Yii3 config-plugin this package binds both `FlagProvider` and
+`WritableFlagProvider` to the same instance — do **not** also bind either key in
+your application or another backend, or `yiisoft/config` reports a
+`Duplicate key` error.
 
 ## Database schema
 
@@ -123,12 +125,63 @@ $featureFlags = new FeatureFlags(provider: $cached);
 $cached->clear();             // removes cached flags, next call reloads from DB
 ```
 
+## Writing flags
+
+`DbFlagProvider` and `CachedFlagProvider` both implement
+`WritableFlagProvider`. Use them for programmatic CRUD or an admin UI.
+
+```php
+use Rasuvaeff\Yii3FeatureFlags\Flag;
+use Rasuvaeff\Yii3FeatureFlags\WritableFlagProvider;
+
+/** @var WritableFlagProvider $provider */
+$provider->save(flag: new Flag(
+    name: 'new-checkout',
+    enabled: true,
+    rollout: 25,
+    environments: ['production'],
+));
+
+$provider->remove(name: 'old-checkout');
+```
+
+- `save()` is an upsert keyed by `name` (insert or replace).
+- `remove()` is idempotent: deleting a missing name is a no-op.
+- `CachedFlagProvider` is write-through: after a successful `save()`/`remove()`
+  it clears its cache before returning, so the next read reflects the change.
+  When the inner provider is read-only (e.g. `ConfigFlagProvider`), write calls
+  are silent no-ops — wrap a config provider safely without exceptions.
+- Salt is normalized: `Flag::__construct()` replaces an empty salt with the
+  flag name. On write the row stores `''` whenever `salt === name` so the
+  round-trip read keeps the same invariant (`emptySaltFallsBackToName`).
+- Environments are encoded through `FlagRowMapper::encodeEnvironments()` and
+  decoded through `extractEnvironments()`. Round-trip is guaranteed.
+
+### Writable DI binding
+
+`config/di.php` binds `WritableFlagProvider` to the same instance as
+`FlagProvider` via `Yiisoft\Definitions\Reference`:
+
+```php
+use Rasuvaeff\Yii3FeatureFlags\WritableFlagProvider;
+use Yiisoft\Definitions\Reference;
+
+return [
+    // ...FlagProvider::class closure omitted for brevity...
+    WritableFlagProvider::class => Reference::to(FlagProvider::class),
+];
+```
+
+Inject `WritableFlagProvider` in write paths and `FlagProvider` in read paths;
+both resolve to the same object.
+
 ## API reference
 
 | Class | Description |
 |---|---|
-| `DbFlagProvider` | Reads all flags from DB in one `SELECT *` |
-| `CachedFlagProvider` | PSR-16 decorator, caches entire flag set with TTL |
+| `DbFlagProvider` | Reads all flags from DB in one `SELECT *`; `implements WritableFlagProvider` |
+| `CachedFlagProvider` | PSR-16 decorator with write-through cache; `implements WritableFlagProvider` |
+| `FlagRowMapper` | `@internal` row ↔ `Flag` mapper; also exposes `encodeEnvironments()` |
 | `InvalidFlagRowException` | Thrown when a DB row has invalid structure |
 
 ## Security
