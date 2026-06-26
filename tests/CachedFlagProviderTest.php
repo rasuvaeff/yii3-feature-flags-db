@@ -4,169 +4,147 @@ declare(strict_types=1);
 
 namespace Rasuvaeff\Yii3FeatureFlagsDb\Tests;
 
-use PHPUnit\Framework\Attributes\CoversClass;
-use PHPUnit\Framework\Attributes\Test;
-use PHPUnit\Framework\TestCase;
-use Psr\SimpleCache\CacheInterface;
 use Rasuvaeff\Yii3FeatureFlags\Flag;
 use Rasuvaeff\Yii3FeatureFlags\FlagConfig;
-use Rasuvaeff\Yii3FeatureFlags\FlagProvider;
 use Rasuvaeff\Yii3FeatureFlags\WritableFlagProvider;
 use Rasuvaeff\Yii3FeatureFlagsDb\CachedFlagProvider;
+use Testo\Assert;
+use Testo\Codecov\Covers;
+use Testo\Test;
 use Yiisoft\Test\Support\SimpleCache\MemorySimpleCache;
 
-#[CoversClass(CachedFlagProvider::class)]
-final class CachedFlagProviderTest extends TestCase
+#[Test]
+#[Covers(CachedFlagProvider::class)]
+final class CachedFlagProviderTest
 {
     private const string CACHE_KEY = 'rasuvaeff.feature-flags.all';
 
-    #[Test]
     public function loadsFromInnerOnMissAndStoresWithKeyAndDefaultTtl(): void
     {
         $flag = $this->flag('test-flag');
-        $inner = $this->createStub(FlagProvider::class);
-        $inner->method('getFlags')->willReturn(['test-flag' => $flag]);
+        $inner = new FakeFlagProvider(flags: ['test-flag' => $flag]);
 
-        $cache = $this->createMock(CacheInterface::class);
-        $cache->method('get')->willReturn(null);
-        $cache->expects($this->once())->method('set')->with(
-            key: self::CACHE_KEY,
-            value: ['test-flag' => $flag],
-            ttl: 60,
-        );
-
+        $cache = new FakeCache();
         $provider = new CachedFlagProvider(inner: $inner, cache: $cache);
         $result = $provider->getFlags();
 
-        $this->assertArrayHasKey('test-flag', $result);
-        $this->assertSame('test-flag', $result['test-flag']->name);
+        Assert::array($result)->hasKeys('test-flag');
+        Assert::same($result['test-flag']->name, 'test-flag');
+
+        $setCalls = array_filter($cache->calls, static fn(array $c): bool => $c['method'] === 'set');
+        Assert::count($setCalls, 1);
+        $setCall = array_values($setCalls)[0];
+        Assert::same($setCall['key'], self::CACHE_KEY);
+        Assert::true(is_array($setCall['args'][1]));
+        Assert::same($setCall['args'][2], 60);
     }
 
-    #[Test]
     public function passesConfiguredTtlToCache(): void
     {
-        $inner = $this->createStub(FlagProvider::class);
-        $inner->method('getFlags')->willReturn([]);
+        $inner = new FakeFlagProvider();
 
-        $cache = $this->createMock(CacheInterface::class);
-        $cache->method('get')->willReturn(null);
-        $cache->expects($this->once())->method('set')->with(
-            key: self::CACHE_KEY,
-            value: [],
-            ttl: 120,
-        );
-
+        $cache = new FakeCache();
         $provider = new CachedFlagProvider(inner: $inner, cache: $cache, ttl: 120);
         $provider->getFlags();
+
+        $setCalls = array_filter($cache->calls, static fn(array $c): bool => $c['method'] === 'set');
+        Assert::count($setCalls, 1);
+        $setCall = array_values($setCalls)[0];
+        Assert::same($setCall['args'][2], 120);
     }
 
-    #[Test]
     public function returnsCachedWithoutCallingInnerOnHit(): void
     {
         $cache = new MemorySimpleCache();
         $cache->set(self::CACHE_KEY, ['flag-a' => $this->flag('flag-a'), 'flag-b' => $this->flag('flag-b')]);
 
-        $inner = $this->createMock(FlagProvider::class);
-        $inner->expects($this->never())->method('getFlags');
+        $inner = new FakeFlagProvider();
 
         $provider = new CachedFlagProvider(inner: $inner, cache: $cache, ttl: 60);
         $result = $provider->getFlags();
 
-        $this->assertCount(2, $result);
-        $this->assertArrayHasKey('flag-a', $result);
-        $this->assertArrayHasKey('flag-b', $result);
+        Assert::count($result, 2);
+        Assert::array($result)->hasKeys('flag-a', 'flag-b');
+        Assert::count($inner->calls, 0);
     }
 
-    #[Test]
     public function roundTripServesSecondCallFromCache(): void
     {
         $flags = ['flag-a' => $this->flag('flag-a'), 'flag-b' => $this->flag('flag-b')];
-        $inner = $this->createMock(FlagProvider::class);
-        $inner->expects($this->once())->method('getFlags')->willReturn($flags);
+        $inner = new FakeFlagProvider(flags: $flags);
 
         $provider = new CachedFlagProvider(inner: $inner, cache: new MemorySimpleCache(), ttl: 60);
 
         $first = $provider->getFlags();
         $second = $provider->getFlags();
 
-        $this->assertCount(2, $first);
-        $this->assertCount(2, $second);
-        $this->assertArrayHasKey('flag-b', $first);
-        $this->assertArrayHasKey('flag-b', $second);
+        Assert::count($first, 2);
+        Assert::count($second, 2);
+        Assert::array($first)->hasKeys('flag-b');
+        Assert::array($second)->hasKeys('flag-b');
+        Assert::count($inner->calls, 1);
     }
 
-    #[Test]
     public function clearRemovesCachedKey(): void
     {
         $cache = new MemorySimpleCache();
         $cache->set(self::CACHE_KEY, ['flag-a' => $this->flag('flag-a')]);
 
-        $inner = $this->createStub(FlagProvider::class);
-        $inner->method('getFlags')->willReturn([]);
+        $inner = new FakeFlagProvider();
 
         $provider = new CachedFlagProvider(inner: $inner, cache: $cache, ttl: 60);
         $provider->clear();
 
-        $this->assertFalse($cache->has(self::CACHE_KEY));
+        Assert::false($cache->has(self::CACHE_KEY));
     }
 
-    #[Test]
     public function clearForcesReloadFromInner(): void
     {
         $flag = $this->flag('rt-flag');
-        $inner = $this->createMock(FlagProvider::class);
-        $inner->expects($this->exactly(2))->method('getFlags')->willReturn(['rt-flag' => $flag]);
+        $inner = new FakeFlagProvider(flags: ['rt-flag' => $flag]);
 
         $provider = new CachedFlagProvider(inner: $inner, cache: new MemorySimpleCache(), ttl: 60);
 
         $provider->getFlags();
         $provider->clear();
         $provider->getFlags();
+
+        $getFlagsCalls = array_filter($inner->calls, static fn(array $c): bool => $c['method'] === 'getFlags');
+        Assert::count($getFlagsCalls, 2);
     }
 
-    #[Test]
     public function fallsBackToInnerWhenCacheReadAndWriteFail(): void
     {
         $flag = $this->flag('rt-flag');
-        $inner = $this->createStub(FlagProvider::class);
-        $inner->method('getFlags')->willReturn(['rt-flag' => $flag]);
+        $inner = new FakeFlagProvider(flags: ['rt-flag' => $flag]);
 
         $provider = new CachedFlagProvider(inner: $inner, cache: new ThrowingCache(), ttl: 60);
         $result = $provider->getFlags();
 
-        $this->assertArrayHasKey('rt-flag', $result);
-        $this->assertSame('rt-flag', $result['rt-flag']->name);
+        Assert::array($result)->hasKeys('rt-flag');
+        Assert::same($result['rt-flag']->name, 'rt-flag');
     }
 
-    #[Test]
     public function clearIsNonFatalWhenCacheThrows(): void
     {
-        $inner = $this->createStub(FlagProvider::class);
-        $inner->method('getFlags')->willReturn([]);
+        $inner = new FakeFlagProvider();
 
         $provider = new CachedFlagProvider(inner: $inner, cache: new ThrowingCache(), ttl: 60);
-
-        $this->expectNotToPerformAssertions();
-
         $provider->clear();
     }
 
-    #[Test]
     public function implementsWritableFlagProvider(): void
     {
         $reflection = new \ReflectionClass(CachedFlagProvider::class);
 
-        $this->assertTrue($reflection->implementsInterface(WritableFlagProvider::class));
+        Assert::true($reflection->implementsInterface(WritableFlagProvider::class));
     }
 
-    #[Test]
     public function saveDelegatesToWritableInnerAndClearsCache(): void
     {
         $flag = $this->flag('saved-flag');
 
-        $inner = $this->createMock(WritableFlagProvider::class);
-        $inner->expects($this->once())->method('save')->with($flag);
-        $inner->method('getFlags')->willReturn([]);
+        $inner = new FakeWritableFlagProvider();
 
         $cache = new MemorySimpleCache();
         $cache->set(self::CACHE_KEY, ['old' => $this->flag('old')]);
@@ -174,16 +152,17 @@ final class CachedFlagProviderTest extends TestCase
         $provider = new CachedFlagProvider(inner: $inner, cache: $cache, ttl: 60);
         $provider->save(flag: $flag);
 
-        $this->assertFalse($cache->has(self::CACHE_KEY));
+        Assert::false($cache->has(self::CACHE_KEY));
+        $saveCalls = array_filter($inner->calls, static fn(array $c): bool => $c['method'] === 'save');
+        Assert::count($saveCalls, 1);
+        Assert::same($saveCalls[0]['args'][0], $flag);
     }
 
-    #[Test]
     public function saveIsNoOpOnReadOnlyInner(): void
     {
         $flag = $this->flag('ignored');
 
-        $inner = $this->createMock(FlagProvider::class);
-        $inner->expects($this->never())->method($this->anything());
+        $inner = new FakeFlagProvider();
 
         $cache = new MemorySimpleCache();
         $cache->set(self::CACHE_KEY, ['kept' => $this->flag('kept')]);
@@ -192,15 +171,13 @@ final class CachedFlagProviderTest extends TestCase
 
         $provider->save(flag: $flag);
 
-        $this->assertTrue($cache->has(self::CACHE_KEY));
+        Assert::true($cache->has(self::CACHE_KEY));
+        Assert::count($inner->calls, 0);
     }
 
-    #[Test]
     public function removeDelegatesToWritableInnerAndClearsCache(): void
     {
-        $inner = $this->createMock(WritableFlagProvider::class);
-        $inner->expects($this->once())->method('remove')->with('stale');
-        $inner->method('getFlags')->willReturn([]);
+        $inner = new FakeWritableFlagProvider();
 
         $cache = new MemorySimpleCache();
         $cache->set(self::CACHE_KEY, ['stale' => $this->flag('stale')]);
@@ -208,14 +185,15 @@ final class CachedFlagProviderTest extends TestCase
         $provider = new CachedFlagProvider(inner: $inner, cache: $cache, ttl: 60);
         $provider->remove(name: 'stale');
 
-        $this->assertFalse($cache->has(self::CACHE_KEY));
+        Assert::false($cache->has(self::CACHE_KEY));
+        $removeCalls = array_filter($inner->calls, static fn(array $c): bool => $c['method'] === 'remove');
+        Assert::count($removeCalls, 1);
+        Assert::same($removeCalls[0]['args'][0], 'stale');
     }
 
-    #[Test]
     public function removeIsNoOpOnReadOnlyInner(): void
     {
-        $inner = $this->createMock(FlagProvider::class);
-        $inner->expects($this->never())->method($this->anything());
+        $inner = new FakeFlagProvider();
 
         $cache = new MemorySimpleCache();
         $cache->set(self::CACHE_KEY, ['kept' => $this->flag('kept')]);
@@ -224,7 +202,8 @@ final class CachedFlagProviderTest extends TestCase
 
         $provider->remove(name: 'ignored');
 
-        $this->assertTrue($cache->has(self::CACHE_KEY));
+        Assert::true($cache->has(self::CACHE_KEY));
+        Assert::count($inner->calls, 0);
     }
 
     private function flag(string $name): Flag

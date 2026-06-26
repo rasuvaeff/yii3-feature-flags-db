@@ -4,34 +4,28 @@ declare(strict_types=1);
 
 namespace Rasuvaeff\Yii3FeatureFlagsDb\Tests;
 
-use PHPUnit\Framework\Attributes\CoversClass;
-use PHPUnit\Framework\Attributes\Test;
-use PHPUnit\Framework\TestCase;
 use Rasuvaeff\Yii3FeatureFlags\Flag;
 use Rasuvaeff\Yii3FeatureFlags\WritableFlagProvider;
 use Rasuvaeff\Yii3FeatureFlagsDb\DbFlagProvider;
-use Yiisoft\Db\Command\CommandInterface;
-use Yiisoft\Db\Connection\ConnectionInterface;
+use Testo\Assert;
+use Testo\Codecov\Covers;
+use Testo\Test;
 
-/**
- * @phpstan-type UpsertCapture array{db: ConnectionInterface, table: ?string, columns: array<string, scalar|null>}
- */
-#[CoversClass(DbFlagProvider::class)]
-final class DbFlagProviderWriteTest extends TestCase
+#[Test]
+#[Covers(DbFlagProvider::class)]
+final class DbFlagProviderWriteTest
 {
-    #[Test]
     public function implementsWritableFlagProvider(): void
     {
         $reflection = new \ReflectionClass(DbFlagProvider::class);
 
-        $this->assertTrue($reflection->implementsInterface(WritableFlagProvider::class));
+        Assert::true($reflection->implementsInterface(WritableFlagProvider::class));
     }
 
-    #[Test]
     public function saveCallsUpsertWithSerializedRow(): void
     {
-        $captured = ['table' => null, 'columns' => []];
-        $db = $this->mockDbWithUpsertCapture($captured);
+        $command = new FakeCommand();
+        $db = new FakeConnection(command: $command);
 
         $provider = new DbFlagProvider(db: $db, table: 'feature_flags');
         $provider->save(flag: new Flag(
@@ -43,8 +37,10 @@ final class DbFlagProviderWriteTest extends TestCase
             environments: ['production', 'staging'],
         ));
 
-        $this->assertSame('feature_flags', $captured['table']);
-        $this->assertSame(
+        Assert::notNull($command->upsertCapture);
+        Assert::same($command->upsertCapture['table'], 'feature_flags');
+        Assert::same(
+            $command->upsertCapture['columns'],
             [
                 'name' => 'new-checkout',
                 'enabled' => true,
@@ -53,91 +49,55 @@ final class DbFlagProviderWriteTest extends TestCase
                 'kill_switch' => false,
                 'environments' => '["production","staging"]',
             ],
-            $captured['columns'],
         );
     }
 
-    #[Test]
     public function saveWritesEmptySaltWhenItMatchesName(): void
     {
-        $captured = ['table' => null, 'columns' => []];
-        $db = $this->mockDbWithUpsertCapture($captured);
+        $command = new FakeCommand();
+        $db = new FakeConnection(command: $command);
 
         $provider = new DbFlagProvider(db: $db);
         $provider->save(flag: new Flag(name: 'my-flag'));
 
-        $this->assertSame('', $captured['columns']['salt']);
+        Assert::notNull($command->upsertCapture);
+        Assert::same($command->upsertCapture['columns']['salt'], '');
     }
 
-    #[Test]
     public function saveKeepsCustomSalt(): void
     {
-        $captured = ['table' => null, 'columns' => []];
-        $db = $this->mockDbWithUpsertCapture($captured);
+        $command = new FakeCommand();
+        $db = new FakeConnection(command: $command);
 
         $provider = new DbFlagProvider(db: $db);
         $provider->save(flag: new Flag(name: 'my-flag', salt: 'custom'));
 
-        $this->assertSame('custom', $captured['columns']['salt']);
+        Assert::notNull($command->upsertCapture);
+        Assert::same($command->upsertCapture['columns']['salt'], 'custom');
     }
 
-    #[Test]
     public function saveEncodesEmptyEnvironmentsAsJsonArray(): void
     {
-        $captured = ['table' => null, 'columns' => []];
-        $db = $this->mockDbWithUpsertCapture($captured);
+        $command = new FakeCommand();
+        $db = new FakeConnection(command: $command);
 
         $provider = new DbFlagProvider(db: $db);
         $provider->save(flag: new Flag(name: 'my-flag'));
 
-        $this->assertSame('[]', $captured['columns']['environments']);
+        Assert::notNull($command->upsertCapture);
+        Assert::same($command->upsertCapture['columns']['environments'], '[]');
     }
 
-    #[Test]
     public function removeCallsDeleteWithNameCondition(): void
     {
-        $captured = ['table' => null, 'condition' => []];
-
-        $command = $this->createMock(CommandInterface::class);
-        $command->expects($this->once())
-            ->method('delete')
-            ->willReturnCallback(function (string $table, array $condition) use (&$captured, $command) {
-                $captured['table'] = $table;
-                $captured['condition'] = $condition;
-
-                return $command;
-            });
-        $command->expects($this->once())->method('execute');
-
-        $db = $this->createMock(ConnectionInterface::class);
-        $db->expects($this->once())->method('createCommand')->willReturn($command);
+        $command = new FakeCommand();
+        $db = new FakeConnection(command: $command);
 
         $provider = new DbFlagProvider(db: $db, table: 'feature_flags');
         $provider->remove(name: 'stale-flag');
 
-        $this->assertSame('feature_flags', $captured['table']);
-        $this->assertSame(['name' => 'stale-flag'], $captured['condition']);
-    }
-
-    /**
-     * @param array{table: ?string, columns: array<string, scalar|null>} $captured
-     */
-    private function mockDbWithUpsertCapture(array &$captured): ConnectionInterface
-    {
-        $command = $this->createMock(CommandInterface::class);
-        $command->expects($this->once())
-            ->method('upsert')
-            ->willReturnCallback(function (string $table, array $insertColumns) use (&$captured, $command) {
-                $captured['table'] = $table;
-                $captured['columns'] = $insertColumns;
-
-                return $command;
-            });
-        $command->expects($this->once())->method('execute');
-
-        $db = $this->createMock(ConnectionInterface::class);
-        $db->expects($this->once())->method('createCommand')->willReturn($command);
-
-        return $db;
+        Assert::notNull($command->deleteCapture);
+        Assert::same($command->deleteCapture['table'], 'feature_flags');
+        Assert::same($command->deleteCapture['condition'], ['name' => 'stale-flag']);
     }
 }
