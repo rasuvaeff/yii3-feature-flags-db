@@ -116,7 +116,7 @@ final class FlagRowMapperTest
         yield 'rollout with leading garbage' => [['rollout' => 'a12'] + $base, 'rollout'];
         yield 'rollout with trailing garbage' => [['rollout' => '12a'] + $base, 'rollout'];
         yield 'missing kill_switch' => [self::without($base, 'kill_switch'), 'kill_switch'];
-        yield 'missing environments' => [self::without($base, 'environments'), 'environments'];
+        yield 'missing environments' => [self::without($base, 'environments'), 'Missing column "environments"'];
         yield 'malformed environments json' => [['environments' => 'not-json'] + $base, 'Invalid "environments" JSON'];
         yield 'environments json not array' => [['environments' => '5'] + $base, 'environments'];
         yield 'environments json non-string item' => [['environments' => '[1]'] + $base, 'environments'];
