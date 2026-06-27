@@ -4,26 +4,30 @@ declare(strict_types=1);
 
 namespace Rasuvaeff\Yii3FeatureFlagsDb\Tests\Integration;
 
-use PHPUnit\Framework\Attributes\CoversClass;
-use PHPUnit\Framework\Attributes\Test;
-use PHPUnit\Framework\TestCase;
 use Rasuvaeff\Yii3FeatureFlags\Flag;
 use Rasuvaeff\Yii3FeatureFlagsDb\CachedFlagProvider;
 use Rasuvaeff\Yii3FeatureFlagsDb\DbFlagProvider;
 use Rasuvaeff\Yii3FeatureFlagsDb\Exception\InvalidFlagRowException;
+use Testo\Assert;
+use Testo\Codecov\CoversNothing;
+use Testo\Expect;
+use Testo\Lifecycle\AfterTest;
+use Testo\Lifecycle\BeforeTest;
+use Testo\Test;
 use Yiisoft\Db\Cache\SchemaCache;
 use Yiisoft\Db\Connection\ConnectionInterface;
 use Yiisoft\Db\Sqlite\Connection as SqliteConnection;
 use Yiisoft\Db\Sqlite\Driver as SqliteDriver;
 use Yiisoft\Test\Support\SimpleCache\MemorySimpleCache;
 
-#[CoversClass(DbFlagProvider::class)]
-final class SqliteIntegrationTest extends TestCase
+#[Test]
+#[CoversNothing]
+final class SqliteIntegrationTest
 {
     private ConnectionInterface $db;
 
-    #[\Override]
-    protected function setUp(): void
+    #[BeforeTest]
+    public function setUp(): void
     {
         $driver = new SqliteDriver(dsn: 'sqlite::memory:');
         $schemaCache = new SchemaCache(psrCache: new MemorySimpleCache());
@@ -42,21 +46,19 @@ final class SqliteIntegrationTest extends TestCase
         ')->execute();
     }
 
-    #[\Override]
-    protected function tearDown(): void
+    #[AfterTest]
+    public function tearDown(): void
     {
         $this->db->close();
     }
 
-    #[Test]
     public function returnsEmptyArrayFromEmptyTable(): void
     {
         $provider = new DbFlagProvider(db: $this->db);
 
-        $this->assertSame([], $provider->getFlags());
+        Assert::same($provider->getFlags(), []);
     }
 
-    #[Test]
     public function readsSingleFlag(): void
     {
         $this->insertRow(
@@ -71,19 +73,18 @@ final class SqliteIntegrationTest extends TestCase
         $provider = new DbFlagProvider(db: $this->db);
         $flags = $provider->getFlags();
 
-        $this->assertCount(1, $flags);
-        $this->assertArrayHasKey('new-checkout', $flags);
+        Assert::count($flags, 1);
+        Assert::array($flags)->hasKeys('new-checkout');
 
         $flag = $flags['new-checkout'];
-        $this->assertSame('new-checkout', $flag->name);
-        $this->assertTrue($flag->enabled);
-        $this->assertSame('checkout-v1', $flag->salt);
-        $this->assertSame(50, $flag->rollout);
-        $this->assertFalse($flag->killSwitch);
-        $this->assertSame(['production'], $flag->environments);
+        Assert::same($flag->name, 'new-checkout');
+        Assert::true($flag->enabled);
+        Assert::same($flag->salt, 'checkout-v1');
+        Assert::same($flag->rollout, 50);
+        Assert::false($flag->killSwitch);
+        Assert::same($flag->environments, ['production']);
     }
 
-    #[Test]
     public function readsMultipleFlags(): void
     {
         $this->insertRow(name: 'flag-a', enabled: true, salt: '', rollout: 100, killSwitch: false, environments: '[]');
@@ -92,14 +93,13 @@ final class SqliteIntegrationTest extends TestCase
         $provider = new DbFlagProvider(db: $this->db);
         $flags = $provider->getFlags();
 
-        $this->assertCount(2, $flags);
-        $this->assertTrue($flags['flag-a']->enabled);
-        $this->assertFalse($flags['flag-b']->enabled);
-        $this->assertTrue($flags['flag-b']->killSwitch);
-        $this->assertSame(['staging'], $flags['flag-b']->environments);
+        Assert::count($flags, 2);
+        Assert::true($flags['flag-a']->enabled);
+        Assert::false($flags['flag-b']->enabled);
+        Assert::true($flags['flag-b']->killSwitch);
+        Assert::same($flags['flag-b']->environments, ['staging']);
     }
 
-    #[Test]
     public function emptySaltFallsBackToName(): void
     {
         $this->insertRow(name: 'my-flag', enabled: true, salt: '', rollout: 100, killSwitch: false, environments: '[]');
@@ -107,10 +107,9 @@ final class SqliteIntegrationTest extends TestCase
         $provider = new DbFlagProvider(db: $this->db);
         $flag = $provider->getFlags()['my-flag'];
 
-        $this->assertSame('my-flag', $flag->salt);
+        Assert::same($flag->salt, 'my-flag');
     }
 
-    #[Test]
     public function readsKillSwitchFlag(): void
     {
         $this->insertRow(name: 'kill-flag', enabled: true, salt: '', rollout: 100, killSwitch: true, environments: '[]');
@@ -118,10 +117,9 @@ final class SqliteIntegrationTest extends TestCase
         $provider = new DbFlagProvider(db: $this->db);
         $flag = $provider->getFlags()['kill-flag'];
 
-        $this->assertTrue($flag->killSwitch);
+        Assert::true($flag->killSwitch);
     }
 
-    #[Test]
     public function readsDisabledFlag(): void
     {
         $this->insertRow(name: 'off-flag', enabled: false, salt: '', rollout: 100, killSwitch: false, environments: '[]');
@@ -129,10 +127,9 @@ final class SqliteIntegrationTest extends TestCase
         $provider = new DbFlagProvider(db: $this->db);
         $flag = $provider->getFlags()['off-flag'];
 
-        $this->assertFalse($flag->enabled);
+        Assert::false($flag->enabled);
     }
 
-    #[Test]
     public function readsEmptyEnvironments(): void
     {
         $this->insertRow(name: 'no-envs', enabled: true, salt: '', rollout: 100, killSwitch: false, environments: '[]');
@@ -140,10 +137,9 @@ final class SqliteIntegrationTest extends TestCase
         $provider = new DbFlagProvider(db: $this->db);
         $flag = $provider->getFlags()['no-envs'];
 
-        $this->assertSame([], $flag->environments);
+        Assert::same($flag->environments, []);
     }
 
-    #[Test]
     public function readsMultipleEnvironments(): void
     {
         $this->insertRow(name: 'multi-env', enabled: true, salt: '', rollout: 100, killSwitch: false, environments: '["production","staging","development"]');
@@ -151,10 +147,9 @@ final class SqliteIntegrationTest extends TestCase
         $provider = new DbFlagProvider(db: $this->db);
         $flag = $provider->getFlags()['multi-env'];
 
-        $this->assertSame(['production', 'staging', 'development'], $flag->environments);
+        Assert::same($flag->environments, ['production', 'staging', 'development']);
     }
 
-    #[Test]
     public function usesCustomTableName(): void
     {
         $this->db->createCommand(sql: '
@@ -176,36 +171,35 @@ final class SqliteIntegrationTest extends TestCase
         $provider = new DbFlagProvider(db: $this->db, table: 'custom_flags');
         $flags = $provider->getFlags();
 
-        $this->assertCount(1, $flags);
-        $this->assertArrayHasKey('custom-flag', $flags);
+        Assert::count($flags, 1);
+        Assert::array($flags)->hasKeys('custom-flag');
     }
 
-    #[Test]
     public function throwsOnInvalidEnvironmentsJson(): void
     {
         $this->insertRow(name: 'bad-envs', enabled: true, salt: '', rollout: 100, killSwitch: false, environments: 'not-json');
 
         $provider = new DbFlagProvider(db: $this->db);
 
-        $this->expectException(InvalidFlagRowException::class);
+        Expect::exception(InvalidFlagRowException::class);
 
         $provider->getFlags();
     }
 
-    #[Test]
     public function throwsOnNonStringEnvironmentsItem(): void
     {
         $this->insertRow(name: 'bad-env-item', enabled: true, salt: '', rollout: 100, killSwitch: false, environments: '[1,2]');
 
         $provider = new DbFlagProvider(db: $this->db);
 
-        $this->expectException(InvalidFlagRowException::class);
-        $this->expectExceptionMessage('Invalid environments[0]: expected string');
-
-        $provider->getFlags();
+        try {
+            $provider->getFlags();
+            Assert::fail('Expected InvalidFlagRowException');
+        } catch (InvalidFlagRowException $e) {
+            Assert::string($e->getMessage())->contains('Invalid environments[0]: expected string');
+        }
     }
 
-    #[Test]
     public function saveInsertsNewFlagVisibleOnNextRead(): void
     {
         $provider = new DbFlagProvider(db: $this->db);
@@ -221,17 +215,16 @@ final class SqliteIntegrationTest extends TestCase
 
         $flags = $provider->getFlags();
 
-        $this->assertArrayHasKey('saved-flag', $flags);
+        Assert::array($flags)->hasKeys('saved-flag');
 
         $flag = $flags['saved-flag'];
-        $this->assertTrue($flag->enabled);
-        $this->assertSame('salt-v1', $flag->salt);
-        $this->assertSame(25, $flag->rollout);
-        $this->assertFalse($flag->killSwitch);
-        $this->assertSame(['production', 'staging'], $flag->environments);
+        Assert::true($flag->enabled);
+        Assert::same($flag->salt, 'salt-v1');
+        Assert::same($flag->rollout, 25);
+        Assert::false($flag->killSwitch);
+        Assert::same($flag->environments, ['production', 'staging']);
     }
 
-    #[Test]
     public function saveUpdatesExistingFlagByName(): void
     {
         $provider = new DbFlagProvider(db: $this->db);
@@ -248,13 +241,12 @@ final class SqliteIntegrationTest extends TestCase
 
         $flag = $provider->getFlags()['existing'];
 
-        $this->assertFalse($flag->enabled);
-        $this->assertSame(0, $flag->rollout);
-        $this->assertTrue($flag->killSwitch);
-        $this->assertSame(['staging'], $flag->environments);
+        Assert::false($flag->enabled);
+        Assert::same($flag->rollout, 0);
+        Assert::true($flag->killSwitch);
+        Assert::same($flag->environments, ['staging']);
     }
 
-    #[Test]
     public function savePreservesEmptySaltRoundTrip(): void
     {
         $provider = new DbFlagProvider(db: $this->db);
@@ -263,36 +255,33 @@ final class SqliteIntegrationTest extends TestCase
 
         $flag = $provider->getFlags()['no-salt'];
 
-        $this->assertSame('no-salt', $flag->salt);
+        Assert::same($flag->salt, 'no-salt');
     }
 
-    #[Test]
     public function removeDeletesFlagByName(): void
     {
         $provider = new DbFlagProvider(db: $this->db);
 
         $provider->save(flag: new Flag(name: 'to-remove'));
 
-        $this->assertArrayHasKey('to-remove', $provider->getFlags());
+        Assert::array($provider->getFlags())->hasKeys('to-remove');
 
         $provider->remove(name: 'to-remove');
 
-        $this->assertArrayNotHasKey('to-remove', $provider->getFlags());
+        Assert::array($provider->getFlags())->doesNotHaveKeys('to-remove');
     }
 
-    #[Test]
     public function removeOnMissingNameIsNoOp(): void
     {
         $provider = new DbFlagProvider(db: $this->db);
 
-        $this->assertSame([], $provider->getFlags());
+        Assert::same($provider->getFlags(), []);
 
         $provider->remove(name: 'does-not-exist');
 
-        $this->assertSame([], $provider->getFlags());
+        Assert::same($provider->getFlags(), []);
     }
 
-    #[Test]
     public function cachedProviderWriteThroughInvalidatesCache(): void
     {
         $db = new DbFlagProvider(db: $this->db);
@@ -302,15 +291,15 @@ final class SqliteIntegrationTest extends TestCase
 
         $flags = $cached->getFlags();
 
-        $this->assertArrayHasKey('cached-flag', $flags);
+        Assert::array($flags)->hasKeys('cached-flag');
 
         $cached->save(flag: new Flag(name: 'cached-flag', enabled: false));
 
-        $this->assertFalse($cached->getFlags()['cached-flag']->enabled);
+        Assert::false($cached->getFlags()['cached-flag']->enabled);
 
         $cached->remove(name: 'cached-flag');
 
-        $this->assertArrayNotHasKey('cached-flag', $cached->getFlags());
+        Assert::array($cached->getFlags())->doesNotHaveKeys('cached-flag');
     }
 
     private function insertRow(

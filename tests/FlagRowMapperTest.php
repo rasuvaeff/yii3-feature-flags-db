@@ -4,25 +4,26 @@ declare(strict_types=1);
 
 namespace Rasuvaeff\Yii3FeatureFlagsDb\Tests;
 
-use PHPUnit\Framework\Attributes\CoversClass;
-use PHPUnit\Framework\Attributes\DataProvider;
-use PHPUnit\Framework\Attributes\Test;
-use PHPUnit\Framework\TestCase;
 use Rasuvaeff\Yii3FeatureFlagsDb\Exception\InvalidFlagRowException;
 use Rasuvaeff\Yii3FeatureFlagsDb\FlagRowMapper;
+use Testo\Assert;
+use Testo\Codecov\Covers;
+use Testo\Data\DataProvider;
+use Testo\Lifecycle\BeforeTest;
+use Testo\Test;
 
-#[CoversClass(FlagRowMapper::class)]
-final class FlagRowMapperTest extends TestCase
+#[Test]
+#[Covers(FlagRowMapper::class)]
+final class FlagRowMapperTest
 {
     private FlagRowMapper $mapper;
 
-    #[\Override]
-    protected function setUp(): void
+    #[BeforeTest]
+    public function setUp(): void
     {
         $this->mapper = new FlagRowMapper();
     }
 
-    #[Test]
     public function mapsRowWithNativeTypes(): void
     {
         $flag = $this->mapper->map([
@@ -34,15 +35,14 @@ final class FlagRowMapperTest extends TestCase
             'environments' => ['production', 'staging'],
         ]);
 
-        $this->assertSame('new-checkout', $flag->name);
-        $this->assertTrue($flag->enabled);
-        $this->assertSame('checkout-v1', $flag->salt);
-        $this->assertSame(50, $flag->rollout);
-        $this->assertFalse($flag->killSwitch);
-        $this->assertSame(['production', 'staging'], $flag->environments);
+        Assert::same($flag->name, 'new-checkout');
+        Assert::true($flag->enabled);
+        Assert::same($flag->salt, 'checkout-v1');
+        Assert::same($flag->rollout, 50);
+        Assert::false($flag->killSwitch);
+        Assert::same($flag->environments, ['production', 'staging']);
     }
 
-    #[Test]
     public function mapsRowWithStringScalars(): void
     {
         $flag = $this->mapper->map([
@@ -54,16 +54,13 @@ final class FlagRowMapperTest extends TestCase
             'environments' => '["production"]',
         ]);
 
-        $this->assertTrue($flag->enabled);
-        $this->assertSame(75, $flag->rollout);
-        $this->assertFalse($flag->killSwitch);
-        $this->assertSame('flag-a', $flag->salt);
-        $this->assertSame(['production'], $flag->environments);
+        Assert::true($flag->enabled);
+        Assert::same($flag->rollout, 75);
+        Assert::false($flag->killSwitch);
+        Assert::same($flag->salt, 'flag-a');
+        Assert::same($flag->environments, ['production']);
     }
 
-    /**
-     * @return iterable<string, array{0: bool|int|string, 1: bool}>
-     */
     public static function boolCastProvider(): iterable
     {
         yield 'bool true' => [true, true];
@@ -77,33 +74,26 @@ final class FlagRowMapperTest extends TestCase
     }
 
     #[DataProvider('boolCastProvider')]
-    #[Test]
     public function castsEnabledColumn(bool|int|string $raw, bool $expected): void
     {
-        $this->assertSame($expected, $this->mapper->map($this->row(enabled: $raw))->enabled);
+        Assert::same($this->mapper->map($this->row(enabled: $raw))->enabled, $expected);
     }
 
-    #[Test]
     public function readsEmptyEnvironmentsFromEmptyString(): void
     {
-        $this->assertSame([], $this->mapper->map($this->row(environments: ''))->environments);
+        Assert::same($this->mapper->map($this->row(environments: ''))->environments, []);
     }
 
-    #[Test]
     public function readsEnvironmentsFromNativeArray(): void
     {
-        $this->assertSame(['a', 'b'], $this->mapper->map($this->row(environments: ['a', 'b']))->environments);
+        Assert::same($this->mapper->map($this->row(environments: ['a', 'b']))->environments, ['a', 'b']);
     }
 
-    #[Test]
     public function readsEnvironmentsFromJsonArray(): void
     {
-        $this->assertSame(['a', 'b'], $this->mapper->map($this->row(environments: '["a","b"]'))->environments);
+        Assert::same($this->mapper->map($this->row(environments: '["a","b"]'))->environments, ['a', 'b']);
     }
 
-    /**
-     * @return iterable<string, array{0: array<string, mixed>, 1: string}>
-     */
     public static function invalidRowProvider(): iterable
     {
         $base = [
@@ -126,7 +116,7 @@ final class FlagRowMapperTest extends TestCase
         yield 'rollout with leading garbage' => [['rollout' => 'a12'] + $base, 'rollout'];
         yield 'rollout with trailing garbage' => [['rollout' => '12a'] + $base, 'rollout'];
         yield 'missing kill_switch' => [self::without($base, 'kill_switch'), 'kill_switch'];
-        yield 'missing environments' => [self::without($base, 'environments'), 'environments'];
+        yield 'missing environments' => [self::without($base, 'environments'), 'Missing column "environments"'];
         yield 'malformed environments json' => [['environments' => 'not-json'] + $base, 'Invalid "environments" JSON'];
         yield 'environments json not array' => [['environments' => '5'] + $base, 'environments'];
         yield 'environments json non-string item' => [['environments' => '[1]'] + $base, 'environments'];
@@ -134,31 +124,27 @@ final class FlagRowMapperTest extends TestCase
         yield 'environments native non-string item' => [['environments' => [1]] + $base, 'environments'];
     }
 
-    /**
-     * @param array<string, mixed> $row
-     */
     #[DataProvider('invalidRowProvider')]
-    #[Test]
     public function throwsOnInvalidRow(array $row, string $needle): void
     {
-        $this->expectException(InvalidFlagRowException::class);
-        $this->expectExceptionMessageMatches('/' . preg_quote($needle, '/') . '/');
-
-        $this->mapper->map($row);
+        try {
+            $this->mapper->map($row);
+            Assert::fail('Expected InvalidFlagRowException');
+        } catch (InvalidFlagRowException $e) {
+            Assert::string($e->getMessage())->contains($needle);
+        }
     }
 
-    #[Test]
     public function wrapsCoreExceptionForRolloutOutOfRange(): void
     {
-        $this->expectException(InvalidFlagRowException::class);
-        $this->expectExceptionMessage('Invalid flag "flag" in DB row');
-
-        $this->mapper->map($this->row(rollout: 150));
+        try {
+            $this->mapper->map($this->row(rollout: 150));
+            Assert::fail('Expected InvalidFlagRowException');
+        } catch (InvalidFlagRowException $e) {
+            Assert::string($e->getMessage())->contains('Invalid flag "flag" in DB row');
+        }
     }
 
-    /**
-     * @return iterable<string, array{0: list<string>, 1: string}>
-     */
     public static function encodeEnvironmentsProvider(): iterable
     {
         yield 'empty' => [[], '[]'];
@@ -167,31 +153,30 @@ final class FlagRowMapperTest extends TestCase
     }
 
     #[DataProvider('encodeEnvironmentsProvider')]
-    #[Test]
     public function encodeEnvironmentsRoundTrips(array $input, string $expected): void
     {
         $encoded = FlagRowMapper::encodeEnvironments(environments: $input);
 
-        $this->assertSame($expected, $encoded);
+        Assert::same($encoded, $expected);
 
         $decoded = $this->mapper->map(row: $this->row(environments: $encoded))->environments;
 
-        $this->assertSame($input, $decoded);
+        Assert::same($decoded, $input);
     }
 
-    #[Test]
     public function encodeEnvironmentsIsEmptyArrayStringForEmptyInput(): void
     {
-        $this->assertSame('[]', FlagRowMapper::encodeEnvironments(environments: []));
+        Assert::same(FlagRowMapper::encodeEnvironments(environments: []), '[]');
     }
 
-    #[Test]
     public function wrapsCoreExceptionForInvalidName(): void
     {
-        $this->expectException(InvalidFlagRowException::class);
-        $this->expectExceptionMessage('Invalid flag "Bad-Name" in DB row');
-
-        $this->mapper->map($this->row(name: 'Bad-Name'));
+        try {
+            $this->mapper->map($this->row(name: 'Bad-Name'));
+            Assert::fail('Expected InvalidFlagRowException');
+        } catch (InvalidFlagRowException $e) {
+            Assert::string($e->getMessage())->contains('Invalid flag "Bad-Name" in DB row');
+        }
     }
 
     /**
