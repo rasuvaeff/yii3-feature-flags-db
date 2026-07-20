@@ -1,32 +1,43 @@
 # rasuvaeff/yii3-feature-flags-db
+
 [![Stable Version](https://img.shields.io/packagist/v/rasuvaeff/yii3-feature-flags-db.svg?label=stable)](https://packagist.org/packages/rasuvaeff/yii3-feature-flags-db)
 [![Total Downloads](https://img.shields.io/packagist/dt/rasuvaeff/yii3-feature-flags-db.svg)](https://packagist.org/packages/rasuvaeff/yii3-feature-flags-db)
 [![Build](https://img.shields.io/github/actions/workflow/status/rasuvaeff/yii3-feature-flags-db/build.yml?branch=master)](https://github.com/rasuvaeff/yii3-feature-flags-db/actions)
 [![Static Analysis](https://img.shields.io/github/actions/workflow/status/rasuvaeff/yii3-feature-flags-db/static-analysis.yml?branch=master&label=static%20analysis)](https://github.com/rasuvaeff/yii3-feature-flags-db/actions)
 [![PHP](https://img.shields.io/packagist/dependency-v/rasuvaeff/yii3-feature-flags-db/php)](https://packagist.org/packages/rasuvaeff/yii3-feature-flags-db)
 [![License](https://img.shields.io/packagist/l/rasuvaeff/yii3-feature-flags-db.svg)](LICENSE.md)
-Поставщик флагов функций на основе базы данных для приложений Yii3. Реализует интерфейс FlagProvider из rasuvaeff/yii3-feature-flags и считывает конфигурацию флагов из таблицы базы данных в одном запросе.
+[English version](README.md)
 
- > Используете помощника по программированию с искусственным интеллектом? [llms.txt](llms.txt) содержит компактную ссылку на API, которую вы можете использовать в контексте приглашения. @@ЛИНИЯ@@
+Database-backed провайдер feature-флагов для приложений Yii3. Реализует интерфейс
+`FlagProvider` из `rasuvaeff/yii3-feature-flags` и читает конфигурацию флагов из
+таблицы БД одним запросом.
+
+> Используете AI-ассистента для написания кода? В [llms.txt](llms.txt) — компактный
+> API-справочник, который можно встроить в промпт-контекст.
+
 ## Требования
+
 - PHP 8.3+
- - `rasuvaeff/yii3-feature-flags` ^1.0
- - `yiisoft/db` ^2.0
- - `yiisoft/db-migration` ^2.0 (отправляет миграцию таблицы)
- - `yiisoft/definitions` ^3.0 (DI `Reference` для `WritableFlagProvider`)
- — реализация кэша PSR-16 — требуется транзитивно для `yiisoft/db` 2.0
- (например, `yiisoft/cache`)
+- `rasuvaeff/yii3-feature-flags` ^1.0
+- `yiisoft/db` ^2.0
+- `yiisoft/db-migration` ^2.0 (поставляет миграцию таблицы)
+- `yiisoft/definitions` ^3.0 (DI `Reference` для `WritableFlagProvider`)
+- реализация PSR-16 cache — транзитивно требуется `yiisoft/db` 2.0
+  (например `yiisoft/cache`)
 
 ## Установка
+
 ```bash
 composer require rasuvaeff/yii3-feature-flags-db
 ```
-С помощью плагина конфигурации Yii3 этот пакет привязывает как `FlagProvider`, так и
- `WritableFlagProvider` к одному и тому же экземпляру — **не** также привязывайте ни один ключ в
- вашего приложения или другого бэкэнда, иначе `yiisoft/config` сообщит об ошибке
- `Duplate key`. @@ЛИНИЯ@@
-## Схема базы данных
-Создайте таблицу Feature_flags (настройте типы для вашей СУБД):
+
+С Yii3 config-plugin этот пакет биндит и `FlagProvider`, и `WritableFlagProvider`
+на один и тот же экземпляр — **не** биндите ни один из этих ключей в приложении
+или другом бэкенде, иначе `yiisoft/config` сообщит об ошибке `Duplicate key`.
+
+## Схема БД
+
+Создайте таблицу `feature_flags` (адаптируйте типы под вашу СУБД):
 
 ```sql
 CREATE TABLE feature_flags (
@@ -38,17 +49,20 @@ CREATE TABLE feature_flags (
     environments TEXT        NOT NULL DEFAULT '[]'
 );
 ```
-| Столбец | Тип | По умолчанию | Описание |
- |---|---|---|---|
- | `имя` | `ВАРЧАР(190)` ПК | — | Имя флага (основное регулярное выражение: `/^[a-z][a-z0-9._-]*$/`) |
- | `включено` | `БУЛЕВАЯ` | `правда` | Активен ли флаг |
- | `соль` | `ВАРЧАР(190)` | `''` | Пустая строка возвращается к имени флага |
- | `развертывание` | `СМАЛЛИНТ` | `100` | Процент 0..100 |
- | `kill_switch` | `БУЛЕВАЯ` | `ложь` | Аварийный выключатель |
- | `окружающая среда` | `JSON`/`ТЕКСТ` | `'[]'` | Массив строк JSON | @@ЛИНИЯ@@
+
+| Колонка | Тип | По умолчанию | Описание |
+|---|---|---|---|
+| `name` | `VARCHAR(190)` PK | — | Имя флага (regex ядра: `/^[a-z][a-z0-9._-]*$/`) |
+| `enabled` | `BOOLEAN` | `true` | Активен ли флаг |
+| `salt` | `VARCHAR(190)` | `''` | Пустая строка означает fallback на имя флага |
+| `rollout` | `SMALLINT` | `100` | Процент 0..100 |
+| `kill_switch` | `BOOLEAN` | `false` | Аварийный выключатель |
+| `environments` | `JSON`/`TEXT` | `'[]'` | JSON-массив строк |
+
 ### Миграция
-The package ships a migration (`migrations/`) for [yiisoft/db-migration](https://github.com/yiisoft/db-migration).
-Зарегистрируйте исходный путь в файле `config/params.php` вашего приложения:
+
+Пакет поставляет миграцию (`migrations/`) для [yiisoft/db-migration](https://github.com/yiisoft/db-migration).
+Зарегистрируйте исходный путь в `config/params.php` вашего приложения:
 
 ```php
 'yiisoft/db-migration' => [
@@ -57,22 +71,28 @@ The package ships a migration (`migrations/`) for [yiisoft/db-migration](https:/
     ],
 ],
 ```
-Затем примените и отмените его с помощью консоли Yii:
-.
+
+Затем примените и откатите её через Yii Console:
+
 ```bash
 ./yii migrate:up
 ./yii migrate:down --limit=1
 ```
-Имя таблицы по умолчанию равно `feature_flags` и должно соответствовать аргументу `table`
- `DbFlagProvider`. Чтобы использовать собственное имя, привяжите аргумент конструктора миграции:
+
+Имя таблицы по умолчанию — `feature_flags`, и должно совпадать с аргументом
+`table` у `DbFlagProvider`. Чтобы использовать кастомное имя, забиндите аргумент
+конструктора миграции:
 
 ```php
 M260605000000CreateFeatureFlagsTable::class => [
     '__construct()' => ['table' => 'my_feature_flags'],
 ],
 ```
+
 ## Использование
-### Базовый поставщик БД
+
+### Базовый DB-провайдер
+
 ```php
 use Rasuvaeff\Yii3FeatureFlags\FeatureFlags;
 use Rasuvaeff\Yii3FeatureFlagsDb\DbFlagProvider;
@@ -88,7 +108,9 @@ if ($featureFlags->isEnabled('new-checkout')) {
     // new checkout flow
 }
 ```
-### С кэшированием PSR-16
+
+### С PSR-16 кэшем
+
 ```php
 use Rasuvaeff\Yii3FeatureFlagsDb\CachedFlagProvider;
 
@@ -100,13 +122,18 @@ $cached = new CachedFlagProvider(
 
 $featureFlags = new FeatureFlags(provider: $cached);
 ```
-### Очистить кеш
+
+### Сброс кэша
+
 ```php
 $cached->clear();             // removes cached flags, next call reloads from DB
 ```
-## Написание флагов
-`DbFlagProvider` и `CachedFlagProvider` реализуют
- `WritableFlagProvider`. Используйте их для программного CRUD или пользовательского интерфейса администратора. @@ЛИНИЯ@@
+
+## Запись флагов
+
+`DbFlagProvider` и `CachedFlagProvider` оба реализуют `WritableFlagProvider`.
+Используйте их для программного CRUD или admin UI.
+
 ```php
 use Rasuvaeff\Yii3FeatureFlags\Flag;
 use Rasuvaeff\Yii3FeatureFlags\WritableFlagProvider;
@@ -121,20 +148,24 @@ $provider->save(flag: new Flag(
 
 $provider->remove(name: 'old-checkout');
 ```
-- `save()` — это upsert с ключом `name` (вставка или замена).
- - `remove()` является идемпотентным: удаление отсутствующего имени не является операцией.
- - `CachedFlagProvider` имеет сквозную запись: после успешного `save()`/`remove()`
- он очищает свой кеш перед возвратом, поэтому следующее чтение отражает изменение.
- Когда внутренний поставщик доступен только для чтения (например, `ConfigFlagProvider`), вызовы записи
- являются молчаливыми и неактивными — безопасно оборачивают поставщика конфигурации без исключений.
- — соль нормализована: `Flag::__construct()` заменяет пустую соль именем флага
-. При записи строка сохраняет `''` всякий раз, когда `salt === name`, поэтому двустороннее чтение
- сохраняет тот же инвариант (`emptySaltFallsBackToName`).
- — среды кодируются с помощью `FlagRowMapper::encodeEnvironments()`, а
- декодируются с помощью `extractEnvironments()`. Поездка туда и обратно гарантирована. @@ЛИНИЯ@@
-### Записываемая привязка DI
-`config/di.php` привязывает `WritableFlagProvider` к тому же экземпляру, что и
- `FlagProvider` через `Yiisoft\Definitions\Reference`:
+
+- `save()` — это upsert с ключом `name` (insert or replace).
+- `remove()` идемпотентен: удаление отсутствующего имени — no-op.
+- `CachedFlagProvider` работает на запись write-through: после успешного
+  `save()`/`remove()` он сбрасывает свой кэш перед возвратом, поэтому следующее
+  чтение видит изменение. Когда внутренний провайдер read-only (например
+  `ConfigFlagProvider`), вызовы записи — молчаливые no-op; можно безопасно
+  оборачивать config-провайдер без исключений.
+- Salt нормализуется: `Flag::__construct()` заменяет пустой salt на имя флага.
+  При записи в строку сохраняется `''`, когда `salt === name`, поэтому round-trip
+  чтение сохраняет тот же инвариант (`emptySaltFallsBackToName`).
+- Окружения кодируются через `FlagRowMapper::encodeEnvironments()` и
+  декодируются через `extractEnvironments()`. Round-trip гарантируется.
+
+### Writable DI-binding
+
+`config/di.php` биндит `WritableFlagProvider` на тот же экземпляр, что и
+`FlagProvider`, через `Yiisoft\Definitions\Reference`:
 
 ```php
 use Rasuvaeff\Yii3FeatureFlags\WritableFlagProvider;
@@ -145,27 +176,43 @@ return [
     WritableFlagProvider::class => Reference::to(FlagProvider::class),
 ];
 ```
-Внедрите `WritableFlagProvider` в пути записи и `FlagProvider` в пути чтения;
- оба разрешаются к одному и тому же объекту. @@ЛИНИЯ@@
-## Справочник по API
+
+Инжектируйте `WritableFlagProvider` в write-path'ах и `FlagProvider` в
+read-path'ах; оба разрешаются в один и тот же объект.
+
+## Справочник API
+
 | Класс | Описание |
- |---|---|
- | `DbFlagProvider` | Считывает все флаги из БД за один `SELECT *`; `реализует WritableFlagProvider` |
- | `CachedFlagProvider` | Декоратор PSR-16 с кэшем сквозной записи; `реализует WritableFlagProvider` |
- | `FlagRowMapper` | строка `@internal` ↔ преобразователь флага; также предоставляет `encodeEnvironments()` |
- | `InvalidFlagRowException` | Вызывается, когда строка БД имеет недопустимую структуру | @@ЛИНИЯ@@
+|---|---|
+| `DbFlagProvider` | Читает все флаги из БД одним `SELECT *`; `implements WritableFlagProvider` |
+| `CachedFlagProvider` | PSR-16 декоратор с write-through кэшем; `implements WritableFlagProvider` |
+| `FlagRowMapper` | `@internal` маппер строка ↔ `Flag`; также экспонирует `encodeEnvironments()` |
+| `InvalidFlagRowException` | Бросается, когда строка БД имеет невалидную структуру |
+
 ## Безопасность
-- Переключатель аварийного отключения, хэш-логика развертывания и нацеливание на среду остаются в базовом пакете — адаптер БД является лишь источником конфигурации.
- — недопустимые данные строки (отсутствующие столбцы, неправильный формат JSON, неправильные типы, развертывание за пределами допустимого диапазона, неверное имя флага) выдает исключение InvalidFlagRowException вместо автоматического включения функций. Ошибки базовой проверки упакованы, поэтому вызывающим сторонам нужно только перехватить InvalidFlagRowException.
- - Риск SQL-инъекций отсутствует: имя таблицы цитируется через yiisoft/db quoter. @@ЛИНИЯ@@
+
+- Kill switch, логика rollout-hash и environment-таргетинг остаются в ядре —
+  DB-адаптер является лишь источником конфигурации.
+- Невалидные данные строки (отсутствующие колонки, некорректный JSON, неверные
+  типы, rollout вне диапазона, неверное имя флага) бросают
+  `InvalidFlagRowException` вместо молчаливого включения фичи. Ошибки валидации
+  ядра обёрнуты, поэтому вызывающему достаточно ловить только
+  `InvalidFlagRowException`.
+- Риск SQL-инъекций отсутствует: имя таблицы квотируется через yiisoft/db quoter.
+
 ## Примеры
-См. [examples/](examples/) для работоспособных сценариев. @@ЛИНИЯ@@
+
+См. [examples/](examples/) — запускаемые скрипты.
+
 ## Разработка
+
 ```bash
-composer build          # full gate: validate + normalize + cs + psalm + test
-composer cs:fix         # auto-fix code style
-composer psalm          # static analysis
-composer test           # run tests
+composer build          # полный gate: validate + normalize + cs + psalm + test
+composer cs:fix         # авто-фикс стиля кода
+composer psalm          # статический анализ
+composer test           # запуск тестов
 ```
+
 ## Лицензия
-BSD-3-пункт. См. [LICENSE.md](LICENSE.md).
+
+BSD-3-Clause. См. [LICENSE.md](LICENSE.md).
