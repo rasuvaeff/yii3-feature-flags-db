@@ -4,8 +4,9 @@ declare(strict_types=1);
 
 namespace Rasuvaeff\Yii3FeatureFlagsDb\Tests\Integration;
 
-use M260605000000CreateFeatureFlagsTable;
 use Rasuvaeff\Yii3FeatureFlagsDb\DbFlagProvider;
+use Rasuvaeff\Yii3FeatureFlagsDb\FeatureFlagsTableName;
+use Rasuvaeff\Yii3FeatureFlagsDb\Migration\M260605000000CreateFeatureFlagsTable;
 use Testo\Assert;
 use Testo\Codecov\CoversNothing;
 use Testo\Lifecycle\AfterTest;
@@ -30,8 +31,6 @@ final class MigrationTest
     #[BeforeTest]
     public function setUp(): void
     {
-        require_once dirname(__DIR__, 2) . '/migrations/M260605000000CreateFeatureFlagsTable.php';
-
         $driver = new SqliteDriver(dsn: 'sqlite::memory:');
         $schemaCache = new SchemaCache(psrCache: new MemorySimpleCache());
         $this->db = new SqliteConnection(driver: $driver, schemaCache: $schemaCache);
@@ -69,7 +68,7 @@ final class MigrationTest
 
     public function createsTableWithCustomName(): void
     {
-        (new M260605000000CreateFeatureFlagsTable(table: 'custom_flags'))->up($this->builder);
+        (new M260605000000CreateFeatureFlagsTable(table: new FeatureFlagsTableName('custom_flags')))->up($this->builder);
 
         Assert::notNull($this->db->getTableSchema('custom_flags', true));
         Assert::null($this->db->getTableSchema('feature_flags', true));

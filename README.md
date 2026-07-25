@@ -59,15 +59,20 @@ CREATE TABLE feature_flags (
 
 ### Migration
 
-The package ships a migration (`migrations/`) for [yiisoft/db-migration](https://github.com/yiisoft/db-migration).
-Register the source path in your app's `config/params.php`:
+Register the bundled migration **by namespace** — no vendor paths:
 
 ```php
-'yiisoft/db-migration' => [
-    'sourcePaths' => [
-        dirname(__DIR__) . '/vendor/rasuvaeff/yii3-feature-flags-db/migrations',
+// config/common/di/migration.php
+use Yiisoft\Db\Migration\Service\MigrationService;
+
+return [
+    MigrationService::class => [
+        'setSourceNamespaces()' => [[
+            'App\\Migration',
+            'Rasuvaeff\\Yii3FeatureFlagsDb\\Migration',
+        ]],
     ],
-],
+];
 ```
 
 Then apply and revert it with Yii Console:
@@ -77,14 +82,25 @@ Then apply and revert it with Yii Console:
 ./yii migrate:down --limit=1
 ```
 
-The table name defaults to `feature_flags` and must match the `table` argument of
-`DbFlagProvider`. To use a custom name, bind the migration constructor argument:
+#### Custom table name
+
+Set it in params — the same value reaches the migration **and** `DbFlagProvider`:
 
 ```php
-M260605000000CreateFeatureFlagsTable::class => [
-    '__construct()' => ['table' => 'my_feature_flags'],
+// config/common/params.php
+'rasuvaeff/yii3-feature-flags-db' => [
+    'table' => 'my_feature_flags',
+    'table_prefix' => '',   // prepended to `table`; e.g. 'rsv_' → rsv_my_feature_flags
 ],
 ```
+
+> **Do not configure the migration through the DI container.**
+> `M...::class => ['__construct()' => ['table' => ...]]` does not work: the
+> migration is built by `Injector::make()`, which resolves arguments by type
+> and never reads a container definition keyed by the migration's own class.
+> Worse, adding that definition makes the container fatal at build time in
+> **every** request, because the class is not autoloadable until the migration
+> runner requires it. That recipe was documented in 1.x; it never worked.
 
 ## Usage
 
