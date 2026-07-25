@@ -79,7 +79,7 @@ final class FlagRowMapper
             return $row[$column];
         }
 
-        if (\is_string($row[$column]) && preg_match('/^-?\d+$/', $row[$column]) === 1) {
+        if (\is_string($row[$column]) && preg_match('/^-?\d+\z/', $row[$column]) === 1) {
             return (int) $row[$column];
         }
 

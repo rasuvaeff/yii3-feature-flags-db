@@ -61,15 +61,20 @@ CREATE TABLE feature_flags (
 
 ### Миграция
 
-Пакет поставляет миграцию (`migrations/`) для [yiisoft/db-migration](https://github.com/yiisoft/db-migration).
-Зарегистрируйте исходный путь в `config/params.php` вашего приложения:
+Регистрируйте поставляемую миграцию **по namespace** — без путей в `vendor/`:
 
 ```php
-'yiisoft/db-migration' => [
-    'sourcePaths' => [
-        dirname(__DIR__) . '/vendor/rasuvaeff/yii3-feature-flags-db/migrations',
+// config/common/di/migration.php
+use Yiisoft\Db\Migration\Service\MigrationService;
+
+return [
+    MigrationService::class => [
+        'setSourceNamespaces()' => [[
+            'App\\Migration',
+            'Rasuvaeff\\Yii3FeatureFlagsDb\\Migration',
+        ]],
     ],
-],
+];
 ```
 
 Затем примените и откатите её через Yii Console:
@@ -79,15 +84,25 @@ CREATE TABLE feature_flags (
 ./yii migrate:down --limit=1
 ```
 
-Имя таблицы по умолчанию — `feature_flags`, и должно совпадать с аргументом
-`table` у `DbFlagProvider`. Чтобы использовать кастомное имя, забиндите аргумент
-конструктора миграции:
+#### Своё имя таблицы
+
+Задаётся в params — то же значение получают и миграция, и `DbFlagProvider`:
 
 ```php
-M260605000000CreateFeatureFlagsTable::class => [
-    '__construct()' => ['table' => 'my_feature_flags'],
+// config/common/params.php
+'rasuvaeff/yii3-feature-flags-db' => [
+    'table' => 'my_feature_flags',
+    'table_prefix' => '',   // добавляется перед `table`; например 'rsv_' → rsv_my_feature_flags
 ],
 ```
+
+> **Не настраивайте миграцию через DI-контейнер.**
+> `M...::class => ['__construct()' => ['table' => ...]]` не работает: миграцию
+> создаёт `Injector::make()`, который резолвит аргументы по типу и никогда не
+> читает определение контейнера по имени класса самой миграции. Хуже того,
+> добавление такого определения роняет контейнер на этапе сборки в **каждом**
+> запросе, потому что класс не автозагружается, пока его не подключит раннер
+> миграций. Этот рецепт был описан в 1.x и никогда не работал.
 
 ## Использование
 

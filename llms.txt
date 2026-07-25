@@ -16,12 +16,13 @@ composer require rasuvaeff/yii3-feature-flags-db
 - `CachedFlagProvider` write-through: after `save()`/`remove()` it calls `clear()` before returning. When inner is read-only, writes are no-ops.
 - `salt === name` is serialised as `''` on write so the round-trip preserves `emptySaltFallsBackToName`.
 - Kill switch, rollout hash, environment targeting — all remain in core.
-- Ships a `yiisoft/db-migration` migration in `migrations/`; table name is a migration constructor arg (default `feature_flags`).
+- Ships a `yiisoft/db-migration` migration as `Rasuvaeff\Yii3FeatureFlagsDb\Migration\M260605000000CreateFeatureFlagsTable` (namespaced since 2.0; register with `setSourceNamespaces()`).
+- Table name flows params (`table_prefix` + `table`) => `FeatureFlagsTableName` (VO) => both `DbFlagProvider` and the migration. Configuring the migration through the container does NOT work: `Injector::make()` resolves by type, not by class-id.
 - `config/di.php` binds `WritableFlagProvider` to the same instance as `FlagProvider` via `Yiisoft\Definitions\Reference`.
 
 ## Database schema
 
-Create the table via the shipped migration (register `migrations/` in
+Create the table via the shipped migration (register the namespace in
 `yiisoft/db-migration` `sourcePaths`, run `./yii migrate:up`), or manually:
 
 ```sql

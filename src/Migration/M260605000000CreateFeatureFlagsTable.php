@@ -2,6 +2,9 @@
 
 declare(strict_types=1);
 
+namespace Rasuvaeff\Yii3FeatureFlagsDb\Migration;
+
+use Rasuvaeff\Yii3FeatureFlagsDb\FeatureFlagsTableName;
 use Yiisoft\Db\Migration\MigrationBuilder;
 use Yiisoft\Db\Migration\RevertibleMigrationInterface;
 use Yiisoft\Db\Migration\TransactionalMigrationInterface;
@@ -9,30 +12,30 @@ use Yiisoft\Db\Migration\TransactionalMigrationInterface;
 /**
  * Creates the feature-flags table read by {@see \Rasuvaeff\Yii3FeatureFlagsDb\DbFlagProvider}.
  *
- * The table name defaults to `feature_flags` and must match the `table` argument
- * of {@see \Rasuvaeff\Yii3FeatureFlagsDb\DbFlagProvider}. To use a custom name,
- * bind the constructor argument in your DI configuration:
+ * The table name comes from {@see FeatureFlagsTableName}, which `config/di.php`
+ * builds from the `rasuvaeff/yii3-feature-flags-db` params — one source of
+ * truth for the migration and the provider alike. Register the migration by
+ * namespace:
  *
  * ```php
- * M260605000000CreateFeatureFlagsTable::class => [
- *     '__construct()' => ['table' => 'my_feature_flags'],
+ * MigrationService::class => [
+ *     'setSourceNamespaces()' => [['Rasuvaeff\\Yii3FeatureFlagsDb\\Migration']],
  * ],
  * ```
+ *
+ * @api
  */
 final class M260605000000CreateFeatureFlagsTable implements RevertibleMigrationInterface, TransactionalMigrationInterface
 {
-    /**
-     * @param non-empty-string $table
-     */
     public function __construct(
-        private readonly string $table = 'feature_flags',
+        private readonly FeatureFlagsTableName $table = new FeatureFlagsTableName(),
     ) {}
 
     #[\Override]
     public function up(MigrationBuilder $b): void
     {
         $b->createTable(
-            $this->table,
+            $this->table->value,
             [
                 'name' => 'string(190) NOT NULL PRIMARY KEY',
                 'enabled' => 'boolean NOT NULL DEFAULT TRUE',
@@ -47,6 +50,6 @@ final class M260605000000CreateFeatureFlagsTable implements RevertibleMigrationI
     #[\Override]
     public function down(MigrationBuilder $b): void
     {
-        $b->dropTable($this->table);
+        $b->dropTable($this->table->value);
     }
 }
