@@ -75,6 +75,44 @@ return [
 ];
 ```
 
+> **Heads up: the snippet above does not find the migration yet.** It is the
+> correct configuration and will start working with no change on your side once
+> the upstream bug below is fixed — but today `./yii migrate:up` reports
+> "Your system is up-to-date", exits 0 and creates no tables.
+>
+> `yiisoft/db-migration` (2.0.x) resolves a namespace to a directory by taking
+> the first entry in `composer/autoload_psr4.php` that the namespace starts
+> with, comparing against the key with its trailing separator trimmed but
+> cutting the remainder with the *untrimmed* length. Trimming the separator
+> destroys the segment boundary, so `Rasuvaeff\Yii3FeatureFlags\` matches
+> `Rasuvaeff\Yii3FeatureFlagsDb\Migration` as if it were its parent —
+> and this package depends on that one, so the collision is always present. The
+> resolved directory does not exist, discovery skips missing directories
+> silently, and nothing is applied.
+
+Until that is fixed upstream, apply the bundled migration yourself:
+
+```php
+// src/Console/MigrateCommand.php (excerpt)
+use Rasuvaeff\Yii3FeatureFlagsDb\Migration\M260605000000CreateFeatureFlagsTable;
+use Yiisoft\Db\Migration\Informer\ConsoleMigrationInformer;
+use Yiisoft\Db\Migration\MigrationBuilder;
+use Yiisoft\Injector\Injector;
+
+$builder = new MigrationBuilder($db, new ConsoleMigrationInformer());
+$injector = new Injector($container);
+
+foreach ([
+    M260605000000CreateFeatureFlagsTable::class,
+] as $class) {
+    $injector->make($class)->up($builder);
+}
+```
+
+`Injector::make()` is required rather than `new`: it resolves the table-name
+value object from your configuration. Keep the loop idempotent (skip when the
+table already exists) — it has no migration history of its own.
+
 Then apply and revert it with Yii Console:
 
 ```bash
