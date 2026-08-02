@@ -14,6 +14,7 @@ use Testo\Test;
 
 #[Test]
 #[Covers(FlagRowMapper::class)]
+#[Covers(InvalidFlagRowException::class)]
 final class FlagRowMapperTest
 {
     private FlagRowMapper $mapper;
