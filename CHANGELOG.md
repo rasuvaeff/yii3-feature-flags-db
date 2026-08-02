@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- Drop the leftover `./yii migrate:up`/`migrate:down` step that followed the manual Injector recipe — it contradicted the paragraph above it and pointed readers back at the path that does not work.
+
 ## 2.0.1 — 2026-08-01
 
 - Docs: the documented `setSourceNamespaces()` migration registration does not
