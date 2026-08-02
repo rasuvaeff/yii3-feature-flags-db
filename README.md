@@ -111,14 +111,9 @@ foreach ([
 
 `Injector::make()` is required rather than `new`: it resolves the table-name
 value object from your configuration. Keep the loop idempotent (skip when the
-table already exists) — it has no migration history of its own.
-
-Then apply and revert it with Yii Console:
-
-```bash
-./yii migrate:up
-./yii migrate:down --limit=1
-```
+table already exists) — it has no migration history of its own, so
+`./yii migrate:down` cannot revert it; write the matching `down()` call
+explicitly if you need a rollback path.
 
 #### Custom table name
 

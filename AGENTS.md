@@ -11,7 +11,7 @@ query via the yiisoft/db `Query` builder (`SELECT *`), and maps each row to
 `FlagConfig` → `Flag` through the `@internal FlagRowMapper`. Provides write
 methods (`save()` upsert, `remove()` delete) and `CachedFlagProvider` — a
 PSR-16 decorator with TTL-based caching and write-through invalidation.
-A migration for `yiisoft/db-migration` ships in `migrations/`.
+A migration for `yiisoft/db-migration` ships in `src/Migration/`.
 Namespace: `Rasuvaeff\Yii3FeatureFlagsDb`.
 
 Public API: `DbFlagProvider`, `CachedFlagProvider`,
@@ -97,8 +97,13 @@ make release-check
   `Reference::to(FlagProvider::class)` so write paths and read paths see the
   same instance. One key, one vendor — no `Duplicate key` conflict with core
   (core binds neither interface).
-- Migrations are loaded by `yiisoft/db-migration` via `sourcePaths` (global-namespace
-  classes in `migrations/`); the migration table name is a constructor argument.
+- The migration table name is a constructor argument. `setSourceNamespaces()`
+  does NOT find them on any released `yiisoft/db-migration` (≤ 2.0.1): it
+  matches the PSR-4 map by string prefix, so `Rasuvaeff\Yii3FeatureFlagsDb\Migration`
+  resolves into the core package and discovery silently finds zero —
+  `migrate:up` exits 0 having created nothing. Until an upstream release carries
+  the fix, migrations are applied directly via
+  `Injector::make($class)->up($builder)` — see the README.
 - Invalid row / out-of-range rollout / invalid name → `InvalidFlagRowException`
   (core `\InvalidArgumentException` — both name and rollout flavors — wrapped).
 - Code: `declare(strict_types=1)`, `final readonly class`, `#[\Override]`,
