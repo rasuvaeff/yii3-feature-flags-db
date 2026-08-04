@@ -1,10 +1,11 @@
 # Changelog
 
-## Unreleased
+## 2.0.2 — 2026-08-04
 
 ### Fixed
 
 - Drop the leftover `./yii migrate:up`/`migrate:down` step that followed the manual Injector recipe — it contradicted the paragraph above it and pointed readers back at the path that does not work.
+- Require `yiisoft/db-migration` ^2.1, which fixes `setSourceNamespaces()` matching a sibling namespace as a parent (upstream [#350](https://github.com/yiisoft/db-migration/pull/350)). Drop the manual `Injector::make()` migration workaround from both READMEs — `setSourceNamespaces()` registration now works as documented.
 
 ## 2.0.1 — 2026-08-01
 

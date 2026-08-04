@@ -20,7 +20,7 @@ Database-backed провайдер feature-флагов для приложен�
 - PHP 8.3+
 - `rasuvaeff/yii3-feature-flags` ^1.0
 - `yiisoft/db` ^2.0
-- `yiisoft/db-migration` ^2.0 (поставляет миграцию таблицы)
+- `yiisoft/db-migration` ^2.1 (поставляет миграцию таблицы)
 - `yiisoft/definitions` ^3.0 (DI `Reference` для `WritableFlagProvider`)
 - реализация PSR-16 cache — транзитивно требуется `yiisoft/db` 2.0
   (например `yiisoft/cache`)
@@ -77,44 +77,9 @@ return [
 ];
 ```
 
-> **Внимание: сниппет выше пока не находит миграцию.** Это правильная
-> конфигурация, и она заработает без единой правки с вашей стороны, как только
-> починят описанный ниже баг апстрима — но сегодня `./yii migrate:up` печатает
-> «Your system is up-to-date», возвращает 0 и не создаёт таблиц.
->
-> `yiisoft/db-migration` (2.0.x) резолвит namespace в каталог так: берёт первую
-> запись в `composer/autoload_psr4.php`, с которой namespace начинается,
-> сравнивая с ключом без завершающего разделителя, а остаток отрезает по
-> *необрезанной* длине. Обрезание разделителя стирает границу сегмента, поэтому
-> `Rasuvaeff\Yii3FeatureFlags\` совпадает с `Rasuvaeff\Yii3FeatureFlagsDb\Migration`
-> так, будто является его родителем — а этот пакет от него зависит, то есть
-> коллизия есть всегда. Полученного каталога не существует, несуществующие
-> каталоги discovery пропускает молча, и ничего не применяется.
-
-Пока это не починено в апстриме, применяйте поставляемую миграцию сами:
-
-```php
-// src/Console/MigrateCommand.php (фрагмент)
-use Rasuvaeff\Yii3FeatureFlagsDb\Migration\M260605000000CreateFeatureFlagsTable;
-use Yiisoft\Db\Migration\Informer\ConsoleMigrationInformer;
-use Yiisoft\Db\Migration\MigrationBuilder;
-use Yiisoft\Injector\Injector;
-
-$builder = new MigrationBuilder($db, new ConsoleMigrationInformer());
-$injector = new Injector($container);
-
-foreach ([
-    M260605000000CreateFeatureFlagsTable::class,
-] as $class) {
-    $injector->make($class)->up($builder);
-}
-```
-
-`Injector::make()` обязателен вместо `new`: он резолвит value object имени
-таблицы из вашей конфигурации. Держите цикл идемпотентным (пропускать, если
-таблица уже есть) — собственной истории миграций у него нет, поэтому
-`./yii migrate:down` его не откатит; если нужен откат, вызывайте `down()`
-явно.
+`yiisoft/db-migration` строит миграцию через `Injector::make()`, поэтому она
+получает `FeatureFlagsTableName` из контейнера так же, как и провайдер —
+никакой ручной проводки сверх `setSourceNamespaces()` выше не нужно.
 
 #### Своё имя таблицы
 

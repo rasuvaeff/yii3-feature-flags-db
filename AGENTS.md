@@ -97,13 +97,9 @@ make release-check
   `Reference::to(FlagProvider::class)` so write paths and read paths see the
   same instance. One key, one vendor — no `Duplicate key` conflict with core
   (core binds neither interface).
-- The migration table name is a constructor argument. `setSourceNamespaces()`
-  does NOT find them on any released `yiisoft/db-migration` (≤ 2.0.1): it
-  matches the PSR-4 map by string prefix, so `Rasuvaeff\Yii3FeatureFlagsDb\Migration`
-  resolves into the core package and discovery silently finds zero —
-  `migrate:up` exits 0 having created nothing. Until an upstream release carries
-  the fix, migrations are applied directly via
-  `Injector::make($class)->up($builder)` — see the README.
+- The migration table name is a constructor argument, resolved by
+  `Injector::make()` the same way as the provider. `setSourceNamespaces()`
+  registration works as of `yiisoft/db-migration` ^2.1 — see the README.
 - Invalid row / out-of-range rollout / invalid name → `InvalidFlagRowException`
   (core `\InvalidArgumentException` — both name and rollout flavors — wrapped).
 - Code: `declare(strict_types=1)`, `final readonly class`, `#[\Override]`,
