@@ -9,6 +9,7 @@ use Rasuvaeff\Yii3FeatureFlags\FlagConfig;
 use Rasuvaeff\Yii3FeatureFlags\WritableFlagProvider;
 use Rasuvaeff\Yii3FeatureFlagsDb\CachedFlagProvider;
 use Testo\Assert;
+use Testo\Assert\ExpectNoAssertions;
 use Testo\Codecov\Covers;
 use Testo\Test;
 use Yiisoft\Test\Support\SimpleCache\MemorySimpleCache;
@@ -125,6 +126,7 @@ final class CachedFlagProviderTest
         Assert::same($result['rt-flag']->name, 'rt-flag');
     }
 
+    #[ExpectNoAssertions]
     public function clearIsNonFatalWhenCacheThrows(): void
     {
         $inner = new FakeFlagProvider();
