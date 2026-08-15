@@ -15,14 +15,8 @@ final class FakeWritableFlagProvider implements WritableFlagProvider
     /** @var list<array{method: string, args: array}> */
     public array $calls = [];
 
-    /** @var array<string, Flag> */
-    private array $flags;
-
     /** @param array<string, Flag> $flags */
-    public function __construct(array $flags = [])
-    {
-        $this->flags = $flags;
-    }
+    public function __construct(private readonly array $flags = []) {}
 
     #[\Override]
     public function getFlags(): array

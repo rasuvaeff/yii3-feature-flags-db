@@ -25,10 +25,10 @@ use Yiisoft\Db\Migration\TransactionalMigrationInterface;
  *
  * @api
  */
-final class M260605000000CreateFeatureFlagsTable implements RevertibleMigrationInterface, TransactionalMigrationInterface
+final readonly class M260605000000CreateFeatureFlagsTable implements RevertibleMigrationInterface, TransactionalMigrationInterface
 {
     public function __construct(
-        private readonly FeatureFlagsTableName $table = new FeatureFlagsTableName(),
+        private FeatureFlagsTableName $table = new FeatureFlagsTableName(),
     ) {}
 
     #[\Override]

@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Rasuvaeff\RectorNamedLiterals\AddNameToLiteralArgumentRector;
 use Rector\Config\RectorConfig;
 use Rector\CodeQuality\Rector\Catch_\ThrowWithPreviousExceptionRector;
 
@@ -17,4 +18,5 @@ return RectorConfig::configure()
         // `code: $e->getCode()` which is always 0 for InvalidArgumentException,
         // and breaks stylistic consistency with the other throws in FlagRowMapper.
         ThrowWithPreviousExceptionRector::class,
-    ]);
+    ])
+    ->withRules([AddNameToLiteralArgumentRector::class]);
