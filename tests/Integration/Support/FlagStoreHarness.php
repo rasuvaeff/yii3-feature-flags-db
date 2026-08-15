@@ -19,13 +19,13 @@ use Yiisoft\Test\Support\SimpleCache\MemorySimpleCache;
  * The system under test for the model-based property in
  * {@see \Rasuvaeff\Yii3FeatureFlagsDb\Tests\Integration\DbFlagProviderStatefulTest}.
  */
-final class FlagStoreHarness
+final readonly class FlagStoreHarness
 {
-    private readonly ConnectionInterface $db;
-    private readonly DbFlagProvider $provider;
+    private ConnectionInterface $db;
+    private DbFlagProvider $provider;
 
     /** @var list<string> */
-    private readonly array $names;
+    private array $names;
 
     public function __construct(int $flagCount)
     {

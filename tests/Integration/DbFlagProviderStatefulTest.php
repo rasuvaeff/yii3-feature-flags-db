@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Rasuvaeff\Yii3FeatureFlagsDb\Tests\Integration;
 
 use Rasuvaeff\PropertyTesting\ArbitraryInterface;
+use Rasuvaeff\PropertyTesting\Classify;
 use Rasuvaeff\PropertyTesting\Gen;
 use Rasuvaeff\PropertyTesting\Property;
 use Rasuvaeff\PropertyTesting\StateMachine\CommandSequence;
@@ -32,6 +33,19 @@ final class DbFlagProviderStatefulTest
     {
         $harness = new FlagStoreHarness(3);
 
+        $kinds = [];
+
+        foreach ($sequence->commands as $command) {
+            $kinds[$command::class] = true;
+        }
+
+        // Floors rather than shares: a swarmed subset of two commands
+        // makes each single-command run about a third of draws, and the
+        // gates exist to catch one becoming unreachable.
+        Classify::cover(isset($kinds[SaveCommand::class]) && !isset($kinds[RemoveCommand::class]), 'writes only', 10.0);
+        Classify::cover(isset($kinds[RemoveCommand::class]) && !isset($kinds[SaveCommand::class]), 'removals only', 10.0);
+        Classify::cover(\count($kinds) === 2, 'both commands interleaved', 10.0);
+
         StateMachine::check($sequence, static fn(): FlagStoreHarness => $harness);
 
         // getFlags() returns exactly the present flags — no phantom rows.
@@ -40,14 +54,17 @@ final class DbFlagProviderStatefulTest
     }
 
     /** @return array<string, ArbitraryInterface> */
-    private function saveAndRemoveTrackTheModelGenerators(): array
+    public static function saveAndRemoveTrackTheModelGenerators(): array
     {
-        return ['sequence' => Gen::commands([null, null, null], [
+        // Swarmed: a sequence may use only one of the two commands. Drawn
+        // uniformly, a run that only ever upserts — never exercising the
+        // remove-then-save path's absence — is astronomically rare.
+        return ['sequence' => Gen::swarm(Gen::commands([null, null, null], [
             Gen::map(
                 Gen::tuple(Gen::intBetween(0, 2), Gen::bool()),
                 static fn(array $pair): SaveCommand => new SaveCommand($pair[0], $pair[1]),
             ),
             Gen::map(Gen::intBetween(0, 2), static fn(int $index): RemoveCommand => new RemoveCommand($index)),
-        ])];
+        ]))];
     }
 }
