@@ -42,7 +42,10 @@ final readonly class M260605000000CreateFeatureFlagsTable implements RevertibleM
                 'salt' => "string(190) NOT NULL DEFAULT ''",
                 'rollout' => 'smallint NOT NULL DEFAULT 100',
                 'kill_switch' => 'boolean NOT NULL DEFAULT FALSE',
-                'environments' => "text NOT NULL DEFAULT '[]'",
+                // no literal DEFAULT: MySQL rejects one on a TEXT column outright
+                // (error 1101), and nothing needs it — DbFlagProvider::save()
+                // writes every column on every upsert
+                'environments' => 'text NOT NULL',
             ],
         );
     }

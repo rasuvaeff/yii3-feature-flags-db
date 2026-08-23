@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Rasuvaeff\Yii3FeatureFlagsDb\Tests\Integration;
 
+use Rasuvaeff\Yii3FeatureFlags\Flag;
 use Rasuvaeff\Yii3FeatureFlagsDb\DbFlagProvider;
 use Rasuvaeff\Yii3FeatureFlagsDb\FeatureFlagsTableName;
 use Rasuvaeff\Yii3FeatureFlagsDb\Migration\M260605000000CreateFeatureFlagsTable;
@@ -72,6 +73,32 @@ final class MigrationTest
 
         Assert::notNull($this->db->getTableSchema('custom_flags', true));
         Assert::null($this->db->getTableSchema('feature_flags', true));
+    }
+
+    /**
+     * MySQL rejects a literal DEFAULT on a TEXT column with error 1101, which
+     * aborted `migrate:up` before the table existed. SQLite tolerates it, so
+     * only an assertion on the column itself keeps the default from returning.
+     */
+    public function environmentsColumnCarriesNoLiteralDefault(): void
+    {
+        (new M260605000000CreateFeatureFlagsTable())->up($this->builder);
+
+        $environments = $this->db->getTableSchema('feature_flags', true)?->getColumn('environments');
+
+        Assert::notNull($environments);
+        Assert::null($environments->getDefaultValue());
+        Assert::true($environments->isNotNull());
+    }
+
+    public function providerWritesEveryColumnTheMigrationLeavesWithoutADefault(): void
+    {
+        (new M260605000000CreateFeatureFlagsTable())->up($this->builder);
+
+        $provider = new DbFlagProvider(db: $this->db);
+        $provider->save(new Flag(name: 'new-checkout', environments: ['production']));
+
+        Assert::same($provider->getFlags()['new-checkout']->environments, ['production']);
     }
 
     public function migratedTableIsReadableByProvider(): void

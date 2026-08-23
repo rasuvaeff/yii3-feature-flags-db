@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- The bundled migration could not be applied on MySQL or MariaDB: `environments` was declared `text NOT NULL DEFAULT '[]'`, and those engines reject a literal `DEFAULT` on a TEXT column outright (error 1101), so `migrate:up` aborted having created nothing ([#28](https://github.com/rasuvaeff/yii3-feature-flags-db/issues/28)). The column is now `text NOT NULL` with no database default — `DbFlagProvider::save()` writes it on every upsert, so nothing relied on the default. Tables created by an earlier version keep working unchanged; a hand-written `INSERT` must now supply the column.
+
+### Added
+
+- A cross-driver integration test applies the migration against real MySQL and PostgreSQL servers (`FEATURE_FLAGS_TEST_DB=mysql|pgsql`, run by CI service containers), so DDL only SQLite tolerates cannot pass unnoticed again. CI now runs the whole `Integration` suite, which no job had been running.
+
 ## 2.0.2 — 2026-08-04
 
 ### Fixed
