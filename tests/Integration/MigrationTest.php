@@ -75,22 +75,6 @@ final class MigrationTest
         Assert::null($this->db->getTableSchema('feature_flags', true));
     }
 
-    /**
-     * MySQL rejects a literal DEFAULT on a TEXT column with error 1101, which
-     * aborted `migrate:up` before the table existed. SQLite tolerates it, so
-     * only an assertion on the column itself keeps the default from returning.
-     */
-    public function environmentsColumnCarriesNoLiteralDefault(): void
-    {
-        (new M260605000000CreateFeatureFlagsTable())->up($this->builder);
-
-        $environments = $this->db->getTableSchema('feature_flags', true)?->getColumn('environments');
-
-        Assert::notNull($environments);
-        Assert::null($environments->getDefaultValue());
-        Assert::true($environments->isNotNull());
-    }
-
     public function providerWritesEveryColumnTheMigrationLeavesWithoutADefault(): void
     {
         (new M260605000000CreateFeatureFlagsTable())->up($this->builder);

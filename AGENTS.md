@@ -81,6 +81,10 @@ make release-check
   `FEATURE_FLAGS_TEST_DB=mysql vendor/bin/testo --suite=Integration` in a PHP
   image that has `pdo_mysql`/`pdo_pgsql` — the plain `composer:2` image has
   neither.
+- **The cheap default-guard lives in the Unit suite on purpose.**
+  `MigrationTableNameTest::environmentsColumnCarriesNoLiteralDefault` is pure
+  SQLite, so it runs inside `composer build` on every PR without containers —
+  and, being under `#[Covers]` on the migration, it is mutation-visible.
 - **The `Integration` suite runs in CI only through `database-integration`.**
   `composer build` runs the Unit suite alone; before this job existed nothing
   ran `tests/Integration` at all. The job is deliberately ungated: a matrix job

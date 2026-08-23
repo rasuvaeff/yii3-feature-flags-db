@@ -84,6 +84,22 @@ final class MigrationTableNameTest
         ]);
     }
 
+    public function environmentsColumnCarriesNoLiteralDefault(): void
+    {
+        // MySQL rejects a literal DEFAULT on a TEXT column with error 1101 and
+        // creates nothing at all; SQLite and PostgreSQL accept it, so only an
+        // assertion on the column itself keeps the default from coming back
+        $migration = $this->make(new SimpleContainer([]));
+
+        $migration->up($this->builder());
+
+        $environments = $this->db->getTableSchema('feature_flags', true)?->getColumn('environments');
+
+        Assert::notNull($environments);
+        Assert::null($environments->getDefaultValue());
+        Assert::true($environments->isNotNull());
+    }
+
     public function downDropsTheConfiguredTable(): void
     {
         $migration = $this->make(new SimpleContainer([
