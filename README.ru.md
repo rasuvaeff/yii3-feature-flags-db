@@ -46,9 +46,14 @@ CREATE TABLE feature_flags (
     salt        VARCHAR(190) NOT NULL DEFAULT '',
     rollout     SMALLINT     NOT NULL DEFAULT 100,
     kill_switch BOOLEAN      NOT NULL DEFAULT FALSE,
-    environments TEXT        NOT NULL DEFAULT '[]'
+    environments TEXT        NOT NULL
 );
 ```
+
+У `environments` намеренно нет `DEFAULT`: MySQL и MariaDB запрещают литеральный
+default на TEXT-колонке (ошибка 1101). `DbFlagProvider::save()` пишет все колонки
+на каждом upsert, поэтому ручной `INSERT` тоже обязан её заполнить — пустой набор
+это строка `''` или `'[]'`.
 
 | Колонка | Тип | По умолчанию | Описание |
 |---|---|---|---|
@@ -57,7 +62,7 @@ CREATE TABLE feature_flags (
 | `salt` | `VARCHAR(190)` | `''` | Пустая строка означает fallback на имя флага |
 | `rollout` | `SMALLINT` | `100` | Процент 0..100 |
 | `kill_switch` | `BOOLEAN` | `false` | Аварийный выключатель |
-| `environments` | `JSON`/`TEXT` | `'[]'` | JSON-массив строк |
+| `environments` | `JSON`/`TEXT` | — | JSON-массив строк; без database default (MySQL запрещает его на TEXT), пишется всегда явно |
 
 ### Миграция
 

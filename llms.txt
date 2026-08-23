@@ -32,9 +32,13 @@ CREATE TABLE feature_flags (
     salt        VARCHAR(190) NOT NULL DEFAULT '',
     rollout     SMALLINT     NOT NULL DEFAULT 100,
     kill_switch BOOLEAN      NOT NULL DEFAULT FALSE,
-    environments TEXT        NOT NULL DEFAULT '[]'
+    environments TEXT        NOT NULL
 );
 ```
+
+Rules: `environments` has no DEFAULT on purpose — MySQL/MariaDB reject a literal
+default on TEXT (error 1101). Every write must supply it; `''` and `'[]'` both
+mean the empty set.
 
 ## API
 

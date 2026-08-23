@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Rasuvaeff\Yii3FeatureFlagsDb\Tests\Integration;
 
+use Rasuvaeff\Yii3FeatureFlags\Flag;
 use Rasuvaeff\Yii3FeatureFlagsDb\DbFlagProvider;
 use Rasuvaeff\Yii3FeatureFlagsDb\FeatureFlagsTableName;
 use Rasuvaeff\Yii3FeatureFlagsDb\Migration\M260605000000CreateFeatureFlagsTable;
@@ -72,6 +73,16 @@ final class MigrationTest
 
         Assert::notNull($this->db->getTableSchema('custom_flags', true));
         Assert::null($this->db->getTableSchema('feature_flags', true));
+    }
+
+    public function providerWritesEveryColumnTheMigrationLeavesWithoutADefault(): void
+    {
+        (new M260605000000CreateFeatureFlagsTable())->up($this->builder);
+
+        $provider = new DbFlagProvider(db: $this->db);
+        $provider->save(new Flag(name: 'new-checkout', environments: ['production']));
+
+        Assert::same($provider->getFlags()['new-checkout']->environments, ['production']);
     }
 
     public function migratedTableIsReadableByProvider(): void

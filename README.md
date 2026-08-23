@@ -44,9 +44,14 @@ CREATE TABLE feature_flags (
     salt        VARCHAR(190) NOT NULL DEFAULT '',
     rollout     SMALLINT     NOT NULL DEFAULT 100,
     kill_switch BOOLEAN      NOT NULL DEFAULT FALSE,
-    environments TEXT        NOT NULL DEFAULT '[]'
+    environments TEXT        NOT NULL
 );
 ```
+
+`environments` deliberately carries no `DEFAULT`: MySQL and MariaDB reject a
+literal default on a TEXT column (error 1101). `DbFlagProvider::save()` writes
+every column on every upsert, so a hand-written `INSERT` must supply it too —
+the empty set is the string `''` or `'[]'`.
 
 | Column | Type | Default | Description |
 |---|---|---|---|
@@ -55,7 +60,7 @@ CREATE TABLE feature_flags (
 | `salt` | `VARCHAR(190)` | `''` | Empty string falls back to flag name |
 | `rollout` | `SMALLINT` | `100` | Percentage 0..100 |
 | `kill_switch` | `BOOLEAN` | `false` | Emergency off switch |
-| `environments` | `JSON`/`TEXT` | `'[]'` | JSON array of strings |
+| `environments` | `JSON`/`TEXT` | — | JSON array of strings; no database default (MySQL forbids one on TEXT), always written explicitly |
 
 ### Migration
 
