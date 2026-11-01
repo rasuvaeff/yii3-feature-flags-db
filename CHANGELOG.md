@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Mutation testing now counts uncovered code (`composer mutation` runs
+  `infection --with-uncovered`); template `PublicVisibility` / signature-default
+  ignore settings applied. `SqliteIntegrationTest` now declares `#[Covers(DbFlagProvider::class)]` instead of `#[CoversNothing]`, so the table reader is credited. No `src/` changes.
+
 ### Changed
 
 - `release.yml` now refuses to publish a GitHub Release for a tag that is not an ancestor of `master` or whose matrix build never went green, and matches the changelog heading as text rather than as a regular expression.

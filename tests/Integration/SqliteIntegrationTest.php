@@ -9,7 +9,7 @@ use Rasuvaeff\Yii3FeatureFlagsDb\CachedFlagProvider;
 use Rasuvaeff\Yii3FeatureFlagsDb\DbFlagProvider;
 use Rasuvaeff\Yii3FeatureFlagsDb\Exception\InvalidFlagRowException;
 use Testo\Assert;
-use Testo\Codecov\CoversNothing;
+use Testo\Codecov\Covers;
 use Testo\Expect;
 use Testo\Lifecycle\AfterTest;
 use Testo\Lifecycle\BeforeTest;
@@ -21,7 +21,7 @@ use Yiisoft\Db\Sqlite\Driver as SqliteDriver;
 use Yiisoft\Test\Support\SimpleCache\MemorySimpleCache;
 
 #[Test]
-#[CoversNothing]
+#[Covers(DbFlagProvider::class)]
 final class SqliteIntegrationTest
 {
     private ConnectionInterface $db;
